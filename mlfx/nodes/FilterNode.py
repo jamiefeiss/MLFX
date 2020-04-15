@@ -1,4 +1,4 @@
-from nodes import Node
+from .Node import Node
 
 class FilterNode(Node) :
     def __init__(self, parent) :

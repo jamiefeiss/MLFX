@@ -1,4 +1,4 @@
-from nodes import Node
+from .Node import Node
 
 class TransverseDimensionsNode(Node) :
     def __init__(self, parent) :

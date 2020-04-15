@@ -50,7 +50,7 @@ class Node(ABC) :
         '''Creates the node in XML'''
         self.validate()
 
-        self._element = etree.SubElement(self._parent.element(), self._name)
+        self._element = etree.SubElement(self._parent.element, self._name)
 
         for key, value in self._attributes.items() :
             self._element.attrib[key] = value
@@ -62,11 +62,11 @@ class Node(ABC) :
         
         # generate children
     
-    @abstractmethod
-    @classmethod
-    def from_xml(self, xml) :
-        '''Object creation from XML'''
-        pass
+    # @abstractmethod
+    # @classmethod
+    # def from_xml(self, xml) :
+    #     '''Object creation from XML'''
+    #     pass
 
     @property
     def element(self) :

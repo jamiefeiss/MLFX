@@ -1,4 +1,4 @@
-from nodes import Node
+from .Node import Node
 
 class AutoVectoriseNode(Node) :
     def __init__(self, parent) :

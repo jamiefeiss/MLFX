@@ -1,6 +1,6 @@
-from nodes import Node
+from .Node import Node
 
-class CFLagsNode(Node) :
+class CFlagsNode(Node) :
     def __init__(self, parent) :
         super().__init__('cflags', parent)
     

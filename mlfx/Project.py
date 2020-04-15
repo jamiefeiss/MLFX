@@ -1,11 +1,11 @@
 from lxml import etree
-import nodes
+from .nodes import *
 
 class Project :
     '''Represents the XMDS2 simulation'''
 
     def __init__(self) :
-        self._node = nodes.SimulationNode()
+        self._node = SimulationNode()
     
     def generate(self, filename) :
         '''Generates the XMDS2 file'''
@@ -13,7 +13,12 @@ class Project :
 
         self._node.generate()
 
-        self._tree = etree.ElementTree(self._node.element())
+        # name = NameNode('test', self._node)
+        author = AuthorNode('Jamie Feiss', self._node)
+        author.generate()
+        # desc = DescriptionNode('description', self._node)
+
+        self._tree = etree.ElementTree(self._node.element)
         self._tree.write(filename + '.xmds', pretty_print = True, xml_declaration = True, encoding = "UTF-8")
 
         # generate children

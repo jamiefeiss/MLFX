@@ -1,8 +1,10 @@
+from lxml import etree
+
 class SimulationNode :
     def __init__(self) :
         self._name = 'simulation'
         self._attributes = {
-            'xmds-version': 2
+            'xmds-version': '2'
         }
         self._children = []
     
@@ -16,7 +18,10 @@ class SimulationNode :
     def generate(self) :
         '''Generates the XMDS2 file'''
         # validate all nodes
-        self.validate()
+        if self.validate() :
+            print('valid')
+        else :
+            print('invalid')
 
         self._element = etree.Element(self._name)
 
