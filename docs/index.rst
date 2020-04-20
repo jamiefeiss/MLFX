@@ -10,6 +10,8 @@ Welcome to MLFX's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   test
+
 
 
 Indices and tables
