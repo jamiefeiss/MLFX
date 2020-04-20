@@ -9,19 +9,10 @@ class Project :
     
     def generate(self, filename) :
         '''Generates the XMDS2 file'''
-        # validate all nodes
-
         self._node.generate()
-
-        # name = NameNode('test', self._node)
-        author = AuthorNode('Jamie Feiss', self._node)
-        author.generate()
-        # desc = DescriptionNode('description', self._node)
 
         self._tree = etree.ElementTree(self._node.element)
         self._tree.write(filename + '.xmds', pretty_print = True, xml_declaration = True, encoding = "UTF-8")
-
-        # generate children
     
     def config(self, config) :
         '''Sets the configuration for the simulation'''
@@ -36,4 +27,9 @@ class Project :
         '''Runs the XMDS2 file'''
         pass
 
-    # newNode()
+    ### meta functions for generating nodes
+
+    def new_author(self, author) :
+        '''Adds an author'''
+        author = AuthorNode('Jamie Feiss', self._node)
+        self._node.add_child(author)

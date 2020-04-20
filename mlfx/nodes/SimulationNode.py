@@ -7,17 +7,47 @@ class SimulationNode :
             'xmds-version': '2'
         }
         self._children = []
+
+        self.__allowed_children = [
+            'name',\
+            'author',\
+            'description',\
+            'features',\
+            'driver',\
+            'geometry',\
+            'vector',\
+            'noise_vector',\
+            'computed_vector',\
+            'filter',\
+            'sequence',\
+            'output'
+        ]
+        self.__allowed_attributes = {
+            'xmds-version': '2'
+        }
+        self.__required_children = [
+            'geometry',\
+            'vector',\
+            'sequence',\
+            'output'
+        ]
+        self.__required_attributes = [
+            'xmds-version'
+        ]
     
     def validate(self) :
+        '''Validates the node'''
         if not self._attributes :
             return False
         if not self._children :
             return False
+        
+        # check allowed/required (check child.name)
+
         return True
     
     def generate(self) :
-        '''Generates the XMDS2 file'''
-        # validate all nodes
+        '''Generates the simulation node'''
         if self.validate() :
             print('valid')
         else :
@@ -28,7 +58,8 @@ class SimulationNode :
         for key, value in self._attributes.items() :
             self._element.attrib[key] = value
         
-        # generate children
+        for child in self._children :
+            child.generate()
     
     @classmethod
     def from_xml(self, xml) :
@@ -49,3 +80,7 @@ class SimulationNode :
     def attributes(self) :
         '''The attributes of the node'''
         return self._attributes
+    
+    def add_child(self, child) :
+        '''Adds a child node'''
+        self._children.append(child)

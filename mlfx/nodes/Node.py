@@ -29,14 +29,10 @@ class Node(ABC) :
         self._attributes = {}
         self._children = []
         # comment?
-        # allowed children
-        # self.__allowed_children = []
-        # allowed attributes (& values)
-        # self.__allowed_attributes = {}
-        # required children
-        # self.__required_children = []
-        # required attributes
-        # self.__required_attributes = []
+        self.__allowed_children = []
+        self.__allowed_attributes = {}
+        self.__required_children = []
+        self.__required_attributes = []
 
         for key, value in kwargs.items() :
             self._attributes[key] = value
@@ -60,7 +56,8 @@ class Node(ABC) :
         else :
             self._element.text = self._text
         
-        # generate children
+        for child in self._children :
+            child.generate()
     
     # @abstractmethod
     # @classmethod
@@ -122,3 +119,7 @@ class Node(ABC) :
     def attributes(self, attributes) :
         '''Sets the attributes of the node'''
         self._attributes = attributes
+    
+    def add_child(self, child) :
+        '''Adds a child node'''
+        self._children.append(child)

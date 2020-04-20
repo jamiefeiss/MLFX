@@ -1,3 +1,7 @@
+'''
+Contains Node classes for each XML element in XMDS2
+'''
+
 from .ArgumentNode import ArgumentNode
 from .ArgumentsNode import ArgumentsNode
 from .AuthorNode import AuthorNode
