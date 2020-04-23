@@ -10,7 +10,9 @@ Welcome to MLFX's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   test
+   install
+   tutorials
+   api/index
 
 
 
