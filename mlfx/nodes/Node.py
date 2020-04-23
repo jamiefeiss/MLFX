@@ -1,27 +1,23 @@
 from abc import ABC, abstractmethod
+from typing import Type, List, Dict, Optional
 from lxml import etree
 
-class Node(ABC) :
-    '''
+class Node(ABC):
+    """
     Abstract class for an XMDS2 node
+    """
 
-    Args:
-        name (str):
-        parent (etree.SubElement):
-        text (str):
-        is_cdata (bool):
-        **kwargs:
-    
-    Attributes:
-        name (str):
-        parent (etree.SubElement):
-        text (str):
-        is_cdata (bool):
-        attributes (dict):
-        element (etree.SubElement):
-    '''
+    def __init__(self, name: str, parent: Type[Node], text: Optional[str] = None, is_cdata: bool = False, **kwargs):
+        """
+        Node constructor
 
-    def __init__(self, name, parent, text = None, is_cdata = False, **kwargs) :
+        Args:
+            name (str): The name of the node. Corresponds to the xml element tag
+            parent (Node): The node's parent
+            text (str): Text within the element. Can be CDATA if is_cdata is true
+            is_cdata (bool): Flag to indicate whether the text within the element is CDATA or a string
+            **kwargs: Attributes of the element
+        """
         self._name = name
         self._parent = parent
         self._text = text
@@ -34,92 +30,168 @@ class Node(ABC) :
         self.__required_children = []
         self.__required_attributes = []
 
-        for key, value in kwargs.items() :
+        for key, value in kwargs.items():
             self._attributes[key] = value
 
     @abstractmethod
-    def validate(self) :
-        '''Validates the node'''
+    def validate(self):
+        """Validates the node"""
         pass
 
-    def generate(self) :
-        '''Creates the node in XML'''
+    def generate(self):
+        """
+        Creates the node in XML
+        
+        First the node is validated, then the xml element is created and inserted into the tree.
+        Then its attributes are inserted, then text.
+        Lastly, each of its children are generated, in order.
+        """
         self.validate()
 
         self._element = etree.SubElement(self._parent.element, self._name)
 
-        for key, value in self._attributes.items() :
+        for key, value in self._attributes.items():
             self._element.attrib[key] = value
 
-        if self._is_cdata :
+        if self._is_cdata:
             self._element.text = etree.CDATA(self._text)
-        else :
+        else:
             self._element.text = self._text
         
-        for child in self._children :
+        for child in self._children:
             child.generate()
     
     # @abstractmethod
     # @classmethod
-    # def from_xml(self, xml) :
-    #     '''Object creation from XML'''
+    # def from_xml(self, xml):
+    #     """Object creation from XML"""
     #     pass
 
     @property
-    def element(self) :
-        '''XML element object for the node'''
+    def element(self) -> etree._Element:
+        """
+        XML element object for the node
+        
+        Returns:
+            The etree XML element
+        """
         return self._element
 
     @property
-    def name(self) :
-        '''The name of the node'''
+    def name(self) -> str:
+        """
+        The name of the node
+        
+        Returns:
+            The name of the node (the xml element tag)
+        """
         return self._name
     
     @name.setter
-    def name(self, name) :
-        '''Sets the name of the node'''
+    def name(self, name: str):
+        """
+        Sets the name of the node
+        
+        Args:
+            name (str): The name of the node (the xml element tag)
+        """
         self._name = name
     
     @property
-    def parent(self) :
-        '''The parent of the node'''
+    def parent(self) -> Type[Node]:
+        """
+        The parent of the node
+        
+        Returns:
+            The parent of the node
+        """
         return self._parent
     
     @parent.setter
-    def parent(self, parent) :
-        '''Sets the parent of the node'''
+    def parent(self, parent: Type[Node]):
+        """
+        Sets the parent of the node
+        
+        Args:
+            parent (Node): The parent of the node
+        """
         self._parent = parent
     
     @property
-    def text(self) :
-        '''The text of the node'''
+    def text(self) -> str:
+        """
+        The text of the node
+        
+        Returns:
+            The text within the node
+        """
         return self._text
     
     @text.setter
-    def text(self, text) :
-        '''Sets the text of the node'''
+    def text(self, text: str):
+        """
+        Sets the text of the node
+        
+        Args:
+            text (str): The text inside the node
+        """
         self._text = text
     
     @property
-    def is_cdata(self) :
-        '''Boolean flag for CDATA, true if text is CDATA'''
+    def is_cdata(self) -> bool:
+        """
+        Boolean flag for CDATA, true if text is CDATA
+        
+        Returns:
+            The boolean flag of whether the node's text is CDATA
+        """
         return self._is_cdata
     
     @is_cdata.setter
-    def is_cdata(self, is_cdata) :
-        '''Sets flag for CDATA for the node'''
+    def is_cdata(self, is_cdata: bool):
+        """
+        Sets flag for CDATA for the node
+        
+        Args:
+            is_cdata (bool): Whether the text is CDATA or not
+        """
         self._is_cdata = is_cdata
     
     @property
-    def attributes(self) :
-        '''The attributes of the node'''
+    def attributes(self) -> Dict:
+        """
+        The attributes of the node
+        
+        Returns:
+            The node's attributes
+        """
         return self._attributes
     
     @attributes.setter
-    def attributes(self, attributes) :
-        '''Sets the attributes of the node'''
+    def attributes(self, attributes: Dict):
+        """
+        Sets the attributes of the node
+        
+        Args:
+            attributes (Dict): The node's attributes
+        """
         self._attributes = attributes
     
-    def add_child(self, child) :
-        '''Adds a child node'''
+    @property
+    def children(self) -> List[Type[Node]]:
+        """
+        The children list of the node
+
+        Returns:
+            The node's children
+        """
+        return self._children
+
+    def add_child(self, child: Type[Node]):
+        """
+        Adds a child node
+        
+        Args:
+            child (Node): A child of the node
+        """
         self._children.append(child)

@@ -1,7 +1,19 @@
+from typing import Type, Dict, List
+
 from lxml import etree
 
+from .Node import Node
+
 class SimulationNode :
+    """
+    Represents the whole XMDS2 simulation.
+
+    The root element of the xml tree.
+    """
     def __init__(self) :
+        """
+        SimulationNode constructor
+        """
         self._name = 'simulation'
         self._attributes = {
             'xmds-version': '2'
@@ -35,8 +47,8 @@ class SimulationNode :
             'xmds-version'
         ]
     
-    def validate(self) :
-        '''Validates the node'''
+    def validate(self) -> bool :
+        """Validates the node"""
         if not self._attributes :
             return False
         if not self._children :
@@ -47,7 +59,7 @@ class SimulationNode :
         return True
     
     def generate(self) :
-        '''Generates the simulation node'''
+        """Generates the simulation node"""
         if self.validate() :
             print('valid')
         else :
@@ -63,24 +75,54 @@ class SimulationNode :
     
     @classmethod
     def from_xml(self, xml) :
-        '''Object creation from XML'''
+        """Object creation from XML"""
         pass
 
     @property
-    def element(self) :
-        '''XML element object for the node'''
+    def element(self) -> etree._Element :
+        """
+        XML element object for the node
+        
+        Returns:
+            The etree XML element
+        """
         return self._element
     
     @property
-    def name(self) :
-        '''The name of the node'''
+    def name(self) -> str :
+        """
+        The name of the node
+        
+        Returns:
+            The name of the node (the xml element tag)
+        """"
         return self._name
     
     @property
-    def attributes(self) :
-        '''The attributes of the node'''
+    def attributes(self) -> Dict :
+        """
+        The attributes of the node
+        
+        Returns:
+            The node's attributes
+        """
         return self._attributes
     
-    def add_child(self, child) :
-        '''Adds a child node'''
+    @property
+    def children(self) -> List[Type[Node]]:
+        """
+        The children list of the node
+
+        Returns:
+            The node's children
+        """
+        return self._children
+
+    def add_child(self, child: Type[Node]) :
+        """
+        Adds a child node
+        
+        Args:
+            child (Node): A child of the node
+        """
         self._children.append(child)
