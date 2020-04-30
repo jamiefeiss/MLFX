@@ -203,6 +203,9 @@ class Node(ABC):
         """
         self._attributes = attributes
     
+    def add_attribute(self, key, value):
+        self._attributes.update({key: value})
+    
     @property
     def children(self) -> List[Type[Node]]:
         """

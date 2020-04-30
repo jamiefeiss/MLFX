@@ -33,6 +33,7 @@ from .IntegrateNode import IntegrateNode
 from .IntegrationVectorsNode import IntegrationVectorsNode
 from .MomentsNode import MomentsNode
 from .NameNode import NameNode
+from .Node import Node
 from .NoiseVectorNode import NoiseVectorNode
 from .OpenMPNode import OpenMPNode
 from .OperatorNamesNode import OperatorNamesNode
@@ -80,6 +81,7 @@ __all__ = [
     'IntegrationVectorsNode',\
     'MomentsNode',\
     'NameNode',\
+    'Node',\
     'NoiseVectorNode',\
     'OpenMPNode',\
     'OperatorNamesNode',\

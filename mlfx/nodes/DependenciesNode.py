@@ -1,8 +1,8 @@
 from .Node import Node
 
 class DependenciesNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('dependencies', parent)
+    def __init__(self, parent, text) :
+        super().__init__('dependencies', parent, text)
     
     def validate(self) :
         # if self._attributes :

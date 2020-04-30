@@ -4,13 +4,13 @@ from lxml import etree
 
 from .Node import Node
 
-class SimulationNode :
+class SimulationNode(object):
     """
     Represents the whole XMDS2 simulation.
 
     The root element of the xml tree.
     """
-    def __init__(self) :
+    def __init__(self):
         """
         SimulationNode constructor
         """
@@ -47,39 +47,39 @@ class SimulationNode :
             'xmds-version'
         ]
     
-    def validate(self) -> bool :
+    def validate(self) -> bool:
         """Validates the node"""
-        if not self._attributes :
+        if not self._attributes:
             return False
-        if not self._children :
+        if not self._children:
             return False
         
         # check allowed/required (check child.tag)
 
         return True
     
-    def generate(self) :
+    def generate(self):
         """Generates the simulation node"""
-        if self.validate() :
-            print('valid')
-        else :
-            print('invalid')
+        # if self.validate():
+        #     print('valid')
+        # else:
+        #     print('invalid')
 
         self._element = etree.Element(self._tag)
 
-        for key, value in self._attributes.items() :
+        for key, value in self._attributes.items():
             self._element.attrib[key] = value
         
-        for child in self._children :
+        for child in self._children:
             child.generate()
     
     @classmethod
-    def from_xml(self, xml) :
+    def from_xml(self, xml):
         """Object creation from XML"""
         pass
 
     @property
-    def element(self) -> etree._Element :
+    def element(self) -> etree._Element:
         """
         XML element object for the node
         
@@ -89,7 +89,7 @@ class SimulationNode :
         return self._element
     
     @property
-    def tag(self) -> str :
+    def tag(self) -> str:
         """
         The tag name of the node
         
@@ -99,7 +99,7 @@ class SimulationNode :
         return self._tag
     
     @property
-    def attributes(self) -> Dict :
+    def attributes(self) -> Dict:
         """
         The attributes of the node
         
@@ -118,7 +118,7 @@ class SimulationNode :
         """
         return self._children
 
-    def add_child(self, child: Type[Node]) :
+    def add_child(self, child: Type[Node]):
         """
         Adds a child node
         

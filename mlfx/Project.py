@@ -2,12 +2,15 @@ from typing import Dict
 
 from lxml import etree
 from .nodes import *
+from .blocks import *
 
-class Project:
+class Project(object):
 	"""Represents the XMDS2 simulation"""
 
 	def __init__(self):
 		self._node = SimulationNode()
+		self._blocks = []
+		self._components = {} # {component: block}, ...
 	
 	def generate(self, filename: str):
 		"""
@@ -16,8 +19,31 @@ class Project:
 		Args:
 			filename (str): The name of the output .xmds file
 		"""
+		# dependencies
+		# scan over blocks for components
+		for block in self._blocks:
+			for component in block.components:
+				self._components.update({component: block})
+
+		# find other components used in equations
+		for block in self._blocks:
+			dependencies = []
+			for eq in block.equations:
+				for comp in self._components.keys():
+					if comp in block.get_rhs(eq):
+						dependencies.append(comp)
+			if dependencies:
+				for d in dependencies:
+					block.add_dependency(self._components[d].name)
+		
+		# generate blocks
+		for block in self._blocks:
+			block.generate()
+
+		# recursive call to validate & generate down the tree
 		self._node.generate()
 
+		# write to file
 		self._tree = etree.ElementTree(self._node.element)
 		self._tree.write(filename + '.xmds', pretty_print = True, xml_declaration = True, encoding = "UTF-8")
 	
@@ -179,3 +205,16 @@ class Project:
 		return seq
 	
 	# def integrate(self, parent, )
+
+	def vec(self, type = None, dimensions = None, initial_basis = None):
+		v = VectorBlock(self._node, type, dimensions, initial_basis)
+		self._add_block(v)
+		return v
+	
+	def operator(self, kind, type = None, constant = None):
+		o = OperatorBlock(self._node, kind, type, constant)
+		self._add_block(o)
+		return o
+	
+	def _add_block(self, block):
+		self._blocks.append(block)

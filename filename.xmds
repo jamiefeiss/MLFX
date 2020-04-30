@@ -15,13 +15,23 @@
       <dimension name="x" lattice="64" domain="(-10, 10)"/>
     </transverse_dimensions>
   </geometry>
-  <vector name="wavefunction" type="complex" dimensions="x">
-    <components>psi</components>
-    <initialisation><![CDATA[psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2) / 2.0); // ground state of HO]]></initialisation>
-  </vector>
-  <computed_vector name="timing_function" type="real" dimensions="">
-    <components>lambda</components>
-    <evaluation><![CDATA[lambda = t / T;]]></evaluation>
-  </computed_vector>
   <sequence/>
+  <!--wavefunction-->
+  <vector name="wavefunction" type="complex" dimensions="x">
+    <components>psi psi2</components>
+    <initialisation><![CDATA[
+psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2) / 2.0); // ground state of HO
+psi2 = test;
+]]></initialisation>
+  </vector>
+  <!--test for dependencies-->
+  <vector name="vec2" type="complex" dimensions="x">
+    <components>v</components>
+    <initialisation><![CDATA[
+v = psi;
+]]><dependencies>wavefunction</dependencies></initialisation>
+  </vector>
+  <operator kind="ip" type="real" constant="yes"><![CDATA[
+Ltt = -pow(kx, 2) / 2.0;
+]]><operator_names>Ltt</operator_names></operator>
 </simulation>
