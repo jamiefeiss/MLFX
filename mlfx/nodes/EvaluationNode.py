@@ -1,8 +1,8 @@
 from .Node import Node
 
 class EvaluationNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('evaluation', parent)
+    def __init__(self, parent, text, is_cdata = False) :
+        super().__init__('evaluation', parent, text, is_cdata)
     
     def validate(self) :
         if self._attributes :

@@ -1,8 +1,8 @@
 from .Node import Node
 
 class ComputedVectorNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('computed_vector', parent)
+    def __init__(self, parent, name: str, type: str, dimensions: str) :
+        super().__init__('computed_vector', parent, name = name, type = type, dimensions = dimensions)
     
     def validate(self) :
         if not self._attributes :

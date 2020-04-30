@@ -1,8 +1,8 @@
 from .Node import Node
 
 class PrecisionNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('precision', parent)
+    def __init__(self, parent, text: str) :
+        super().__init__('precision', parent, text)
     
     def validate(self) :
         if self._attributes :

@@ -14,7 +14,7 @@ class SimulationNode :
         """
         SimulationNode constructor
         """
-        self._name = 'simulation'
+        self._tag = 'simulation'
         self._attributes = {
             'xmds-version': '2'
         }
@@ -54,7 +54,7 @@ class SimulationNode :
         if not self._children :
             return False
         
-        # check allowed/required (check child.name)
+        # check allowed/required (check child.tag)
 
         return True
     
@@ -65,7 +65,7 @@ class SimulationNode :
         else :
             print('invalid')
 
-        self._element = etree.Element(self._name)
+        self._element = etree.Element(self._tag)
 
         for key, value in self._attributes.items() :
             self._element.attrib[key] = value
@@ -89,14 +89,14 @@ class SimulationNode :
         return self._element
     
     @property
-    def name(self) -> str :
+    def tag(self) -> str :
         """
-        The name of the node
+        The tag name of the node
         
         Returns:
-            The name of the node (the xml element tag)
-        """"
-        return self._name
+            The tag name of the node (the xml element tag)
+        """
+        return self._tag
     
     @property
     def attributes(self) -> Dict :

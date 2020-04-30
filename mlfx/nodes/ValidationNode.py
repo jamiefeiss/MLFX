@@ -1,8 +1,8 @@
 from .Node import Node
 
 class ValidationNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('validation', parent)
+    def __init__(self, parent, kind) :
+        super().__init__('validation', parent, kind = kind)
     
     def validate(self) :
         if not self._attributes :

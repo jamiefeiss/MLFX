@@ -1,8 +1,8 @@
 from .Node import Node
 
 class DimensionNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('dimension', parent)
+    def __init__(self, parent, name: str, lattice: str, domain: str) :
+        super().__init__('dimension', parent, name = name, lattice = lattice, domain = domain)
     
     def validate(self) :
         if not self._attributes :

@@ -17,7 +17,7 @@ class AuthorNode(Node) :
     
     def validate(self) :
         """
-        Validates the AuthorNode
+        Validates the node
         """
         if self._attributes :
             return False

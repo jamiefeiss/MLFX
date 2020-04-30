@@ -1,8 +1,10 @@
+from typing import Optional
+
 from .Node import Node
 
 class OpenMPNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('openmp', parent)
+    def __init__(self, parent, threads: Optional[str] = None) :
+        super().__init__('openmp', parent, threads = threads)
     
     def validate(self) :
         if self._text :

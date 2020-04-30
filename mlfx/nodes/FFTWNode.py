@@ -1,8 +1,10 @@
+from typing import Optional
+
 from .Node import Node
 
 class FFTWNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('fftw', parent)
+    def __init__(self, parent, plan: str, threads: Optional[str] = None) :
+        super().__init__('fftw', parent, plan = plan, threads = threads)
     
     def validate(self) :
         if not self._attributes :

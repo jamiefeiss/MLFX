@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Type, List, Dict, Optional
 from lxml import etree
@@ -7,24 +9,24 @@ class Node(ABC):
     Abstract class for an XMDS2 node
     """
 
-    def __init__(self, name: str, parent: Type[Node], text: Optional[str] = None, is_cdata: bool = False, **kwargs):
+    def __init__(self, tag: str, parent: Type[Node], text: Optional[str] = None, is_cdata: bool = False, **kwargs):
         """
         Node constructor
 
         Args:
-            name (str): The name of the node. Corresponds to the xml element tag
+            tag (str): The tag name of the node. Corresponds to the xml element tag
             parent (Node): The node's parent
             text (str): Text within the element. Can be CDATA if is_cdata is true
             is_cdata (bool): Flag to indicate whether the text within the element is CDATA or a string
             **kwargs: Attributes of the element
         """
-        self._name = name
+        self._tag = tag
         self._parent = parent
         self._text = text
         self._is_cdata = is_cdata
+        self._comment = ''
         self._attributes = {}
         self._children = []
-        # comment?
         self.__allowed_children = []
         self.__allowed_attributes = {}
         self.__required_children = []
@@ -48,10 +50,14 @@ class Node(ABC):
         """
         self.validate()
 
-        self._element = etree.SubElement(self._parent.element, self._name)
+        if self._comment:
+            self._parent.element.append(etree.Comment(self._comment))
+
+        self._element = etree.SubElement(self._parent.element, self._tag)
 
         for key, value in self._attributes.items():
-            self._element.attrib[key] = value
+            if value is not None:
+                self._element.attrib[key] = value  
 
         if self._is_cdata:
             self._element.text = etree.CDATA(self._text)
@@ -78,24 +84,24 @@ class Node(ABC):
         return self._element
 
     @property
-    def name(self) -> str:
+    def tag(self) -> str:
         """
-        The name of the node
+        The tag name of the node
         
         Returns:
-            The name of the node (the xml element tag)
+            The tag name of the node (the xml element tag)
         """
-        return self._name
+        return self._tag
     
-    @name.setter
-    def name(self, name: str):
+    @tag.setter
+    def tag(self, tag: str):
         """
-        Sets the name of the node
+        Sets the tag name of the node
         
         Args:
-            name (str): The name of the node (the xml element tag)
+            tag (str): The tag name of the node (the xml element tag)
         """
-        self._name = name
+        self._tag = tag
     
     @property
     def parent(self) -> Type[Node]:
@@ -157,6 +163,26 @@ class Node(ABC):
         """
         self._is_cdata = is_cdata
     
+    @property
+    def comment(self) -> str:
+        """
+        The comment of the node
+        
+        Returns:
+            The comment of the node
+        """
+        return self._comment
+    
+    @comment.setter
+    def comment(self, comment: str):
+        """
+        Sets the comment of the node
+        
+        Args:
+            comment (str): The comment of the node
+        """
+        self._comment = comment
+
     @property
     def attributes(self) -> Dict:
         """

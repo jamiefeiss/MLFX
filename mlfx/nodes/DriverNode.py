@@ -1,8 +1,10 @@
+from typing import Optional
+
 from .Node import Node
 
 class DriverNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('driver', parent)
+    def __init__(self, parent, name: str, paths: Optional[str] = None) :
+        super().__init__('driver', parent, name = name, paths = paths)
     
     def validate(self) :
         if not self._attributes :

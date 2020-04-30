@@ -1,8 +1,8 @@
 from .Node import Node
 
 class ChunkedOutputNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('chunked_output', parent)
+    def __init__(self, parent, size: str) :
+        super().__init__('chunked_output', parent, size = size)
     
     def validate(self) :
         if not self._attributes :

@@ -1,8 +1,8 @@
 from .Node import Node
 
 class PropagationDimensionNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('propagation_dimension', parent)
+    def __init__(self, parent, text: str) :
+        super().__init__('propagation_dimension', parent, text)
     
     def validate(self) :
         if self._attributes :
