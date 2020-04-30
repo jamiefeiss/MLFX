@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<simulation xmds-version="2">
+  <name>name</name>
+  <author>author</author>
+  <description>desc</description>
+  <features>
+    <auto_vectorise/>
+    <benchmark/>
+    <fftw plan="patient"/>
+    <validation kind="run-time"/>
+  </features>
+  <geometry>
+    <propagation_dimension>t</propagation_dimension>
+    <transverse_dimensions>
+      <dimension name="x" lattice="64" domain="(-10, 10)"/>
+    </transverse_dimensions>
+  </geometry>
+  <vector name="wavefunction" type="complex" dimensions="x">
+    <components>psi</components>
+    <initialisation><![CDATA[psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2) / 2.0); // ground state of HO]]></initialisation>
+  </vector>
+  <computed_vector name="timing_function" type="real" dimensions="">
+    <components>lambda</components>
+    <evaluation><![CDATA[lambda = t / T;]]></evaluation>
+  </computed_vector>
+  <sequence/>
+</simulation>
