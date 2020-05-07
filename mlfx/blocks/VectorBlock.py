@@ -12,34 +12,32 @@ class VectorBlock(Block):
         self.type = type
         self.dimensions = dimensions
         self.initial_basis = initial_basis
+
+        self._head = VectorNode(self._parent, self.name)
+        self._parent.add_child(self._head)
     
     # init file
     
     def generate(self):
-        # vector
-        vec = VectorNode(self.parent, self.name)
-
         # attributes
         if self.type is not None:
-            vec.add_attribute('type', self.type)
+            self._head.add_attribute('type', self.type)
         if self.dimensions is not None:
-            vec.add_attribute('dimensions', self.dimensions)
+            self._head.add_attribute('dimensions', self.dimensions)
         if self.initial_basis is not None:
-            vec.add_attribute('initial_basis', self.initial_basis)
-        
-        self.parent.add_child(vec)
+            self._head.add_attribute('initial_basis', self.initial_basis)
 
         # comments
         if self.comment_str:
-            vec.comment = self.comment_str
+            self._head.comment = self.comment_str
 
         # components
-        c = ComponentsNode(vec, self.components_str())
-        vec.add_child(c)
+        c = ComponentsNode(self._head, self.components_str())
+        self._head.add_child(c)
 
         # initialisation
-        init = InitialisationNode(vec, self.equations_str(), True)
-        vec.add_child(init)
+        init = InitialisationNode(self._head, self.equations_str(), True)
+        self._head.add_child(init)
 
         # dependencies
         if self.dependencies:

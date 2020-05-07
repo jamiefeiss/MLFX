@@ -14,26 +14,27 @@ class OperatorBlock(Block):
         self.constant = constant
     
     def generate(self):
-        # operator
-        op = OperatorNode(self.parent, self.equations_str(), self.kind)
+        self._head = OperatorNode(self._parent, self.kind)
+        self._parent.add_child(self._head)
+
+        # equations
+        self._head.text = self.equations_str()
 
         # attributes
         if self.type is not None:
-            op.add_attribute('type', self.type)
+            self._head.add_attribute('type', self.type)
         if self.constant is not None:
-            op.add_attribute('constant', self.constant)
-        
-        self.parent.add_child(op)
+            self._head.add_attribute('constant', self.constant)
 
         # comments
         if self.comment_str:
-            op.comment = self.comment_str
+            self._head.comment = self.comment_str
 
         # operator names
-        op_names = OperatorNamesNode(op, self.components_str())
-        op.add_child(op_names)
+        op_names = OperatorNamesNode(self._head, self.components_str())
+        self._head.add_child(op_names)
 
         # dependencies
         if self.dependencies:
-            dep = DependenciesNode(op, self.dependencies_str())
-            op.add_child(dep)
+            dep = DependenciesNode(self._head, self.dependencies_str())
+            self._head.add_child(dep)

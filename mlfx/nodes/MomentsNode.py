@@ -1,8 +1,8 @@
 from .Node import Node
 
 class MomentsNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('moments', parent)
+    def __init__(self, parent, text) :
+        super().__init__('moments', parent, text)
     
     def validate(self) :
         if self._attributes :

@@ -1,12 +1,16 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <simulation xmds-version="2">
-  <name>name</name>
-  <author>author</author>
-  <description>desc</description>
+  <name>bec_transport_generated</name>
+  <author>Jamie Feiss</author>
+  <description>Testing generating the BEC transport problem using the library</description>
   <features>
     <auto_vectorise/>
     <benchmark/>
     <fftw plan="patient"/>
+    <globals><![CDATA[
+const real T = 3.0; // End time
+const real x_0 = 3.0; // Final position
+]]></globals>
     <validation kind="run-time"/>
   </features>
   <geometry>
@@ -15,23 +19,53 @@
       <dimension name="x" lattice="64" domain="(-10, 10)"/>
     </transverse_dimensions>
   </geometry>
-  <sequence/>
-  <!--wavefunction-->
+  <!--Wavefunction-->
   <vector name="wavefunction" type="complex" dimensions="x">
-    <components>psi psi2</components>
+    <components>psi</components>
     <initialisation><![CDATA[
 psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2) / 2.0); // ground state of HO
-psi2 = test;
 ]]></initialisation>
   </vector>
-  <!--test for dependencies-->
-  <vector name="vec2" type="complex" dimensions="x">
-    <components>v</components>
+  <!--Timing function-->
+  <computed_vector name="timing_function" type="real" dimensions="">
+    <components>lambda</components>
+    <evaluation><![CDATA[
+lambda = t / T;
+]]></evaluation>
+  </computed_vector>
+  <!--Harmonic trap potential-->
+  <vector name="potential" type="real" dimensions="x">
+    <components>V</components>
     <initialisation><![CDATA[
-v = psi;
-]]><dependencies>wavefunction</dependencies></initialisation>
+V = pow(x - lambda * x_0, 2) / 2.0;
+]]><dependencies>timing_function</dependencies></initialisation>
   </vector>
-  <operator kind="ip" type="real" constant="yes"><![CDATA[
+  <sequence>
+    <!--imaginary time-->
+    <integrate algorithm="RK4" interval="5.0e-3" steps="1000">
+      <operators><![CDATA[
+dpsi_dt = Ltt[psi] - (V + mod2(psi)) * psi;
+]]><integration_vectors>wavefunction</integration_vectors><dependencies>potential</dependencies></operators>
+      <operator kind="ip" type="real" constant="yes"><![CDATA[
 Ltt = -pow(kx, 2) / 2.0;
 ]]><operator_names>Ltt</operator_names></operator>
+    </integrate>
+    <!--gpe-->
+    <integrate algorithm="ARK45" interval="T" tolerance="1e-8">
+      <samples>100</samples>
+      <operators><![CDATA[
+dpsi_dt = Ltt[psi] - i * (V + mod2(psi)) * psi;
+]]><integration_vectors>wavefunction</integration_vectors><dependencies>potential</dependencies></operators>
+      <operator kind="ip" type="imaginary" constant="yes"><![CDATA[
+Ltt = -i * pow(kx, 2) / 2.0;
+]]><operator_names>Ltt</operator_names></operator>
+    </integrate>
+  </sequence>
+  <output>
+    <sampling_group basis="x" initial_sample="no"><![CDATA[
+psi_real = psi.Re();
+psi_imag = psi.Im();
+density = mod2(psi);
+]]><moments>psi_real psi_imag density</moments><dependencies>wavefunction wavefunction wavefunction</dependencies></sampling_group>
+  </output>
 </simulation>

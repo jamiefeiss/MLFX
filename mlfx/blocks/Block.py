@@ -12,11 +12,13 @@ class Block(ABC):
 
     def __init__(self, parent):
         self.name = varname(caller = 3)
-        self.parent = parent
+        self._parent = parent
         self.comment_str = ''
         self.equations = []
         self.components = []
         self.dependencies = []
+
+        # self._head
     
     def comment(self, comment):
         self.comment_str = comment

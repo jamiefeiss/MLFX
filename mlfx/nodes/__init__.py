@@ -42,6 +42,7 @@ from .OperatorsNode import OperatorsNode
 from .OutputNode import OutputNode
 from .PrecisionNode import PrecisionNode
 from .PropagationDimensionNode import PropagationDimensionNode
+from .SamplesNode import SamplesNode
 from .SamplingGroupNode import SamplingGroupNode
 from .SequenceNode import SequenceNode
 from .SimulationNode import SimulationNode
@@ -90,6 +91,7 @@ __all__ = [
     'OutputNode',\
     'PrecisionNode',\
     'PropagationDimensionNode',\
+    'SamplesNode',\
     'SamplingGroupNode',\
     'SequenceNode',\
     'SimulationNode',\

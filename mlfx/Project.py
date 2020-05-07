@@ -11,6 +11,7 @@ class Project(object):
 		self._node = SimulationNode()
 		self._blocks = []
 		self._components = {} # {component: block}, ...
+		self._globals = []
 	
 	def generate(self, filename: str):
 		"""
@@ -22,6 +23,9 @@ class Project(object):
 		# dependencies
 		# scan over blocks for components
 		for block in self._blocks:
+			# don't register integrate components
+			if type(block) is IntegrateBlock:
+				continue
 			for component in block.components:
 				self._components.update({component: block})
 
@@ -32,8 +36,16 @@ class Project(object):
 				for comp in self._components.keys():
 					if comp in block.get_rhs(eq):
 						dependencies.append(comp)
+			if type(block) is IntegrateBlock:
+				# find integration vectors
+				for component in block.components:
+					block.add_int_vec(self._components[component].name)
 			if dependencies:
 				for d in dependencies:
+					if type(block) is IntegrateBlock:
+						# dont have integration vectors as dependencies
+						if self._components[d].name in block.int_vecs:
+							continue
 					block.add_dependency(self._components[d].name)
 		
 		# generate blocks
@@ -96,7 +108,14 @@ class Project(object):
 				else: # tuple
 					fftw = FFTWNode(features, config['fftw'][0], config['fftw'][1])
 				features.add_child(fftw)
-		# ignore globals for now
+		if self._globals:
+			g = GlobalsNode(features)
+			g_str = '\n'
+			for glob in self._globals:
+				g_str += glob
+				g_str += '\n'
+			g.text = g_str
+			features.add_child(g)
 		if 'openmp' in config:
 			if config['openmp'] != False:
 				if config['openmp'] == True:
@@ -145,7 +164,7 @@ class Project(object):
 		"""Runs the XMDS2 file"""
 		pass
 
-	### meta functions for generating nodes
+	### nodes
 
 	def new_name(self, text: str):
 		"""
@@ -177,6 +196,8 @@ class Project(object):
 		desc = DescriptionNode(text, self._node)
 		self._node.add_child(desc)
 	
+	### blocks
+	
 	def new_vector(self, name: str, component: str, type: str, dimensions: str, initialisation: str):
 		# only consider type & dimensions, no dependencies
 		vector = VectorNode(self._node, name, type, dimensions)
@@ -200,21 +221,42 @@ class Project(object):
 	# ignore filters
 	
 	def sequence(self):
-		seq = SequenceNode(self._node)
-		self._node.add_child(seq)
-		return seq
+		# ignore nested sequences for now
+		self._sequence = SequenceNode(self._node)
+		self._node.add_child(self._sequence)
+		return self._sequence
 	
-	# def integrate(self, parent, )
+	def output(self):
+		self._output = OutputNode(self._node)
+		self._node.add_child(self._output)
+		return self._output
+	
+	def integrate(self, algorithm, interval, steps = None, tolerance = None, samples = None):
+		i = IntegrateBlock(self._sequence, algorithm, interval, steps, tolerance, samples)
+		self._add_block(i)
+		return i
 
 	def vec(self, type = None, dimensions = None, initial_basis = None):
 		v = VectorBlock(self._node, type, dimensions, initial_basis)
 		self._add_block(v)
 		return v
 	
-	def operator(self, kind, type = None, constant = None):
-		o = OperatorBlock(self._node, kind, type, constant)
-		self._add_block(o)
+	def comp_vec(self, type = None, dimensions = None, initial_basis = None):
+		cv = ComputedVectorBlock(self._node, type, dimensions, initial_basis)
+		self._add_block(cv)
+		return cv
+	
+	def operator(self, parent, kind, type = None, constant = None):
+		o = OperatorBlock(parent, kind, type, constant)
 		return o
+	
+	def sampling_group(self, basis = None, initial_sample = None):
+		sg = SamplingGroupBlock(self._output, basis, initial_sample)
+		self._add_block(sg)
+		return sg
 	
 	def _add_block(self, block):
 		self._blocks.append(block)
+	
+	def add_global(self, glob):
+		self._globals.append(glob)
