@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Type, Optional, List
+import re
 
 from varname import varname
 
@@ -32,6 +33,10 @@ class Block(ABC):
     
     def get_rhs(self, eq):
         return eq.split('=')[1].strip()
+    
+    def get_terms(self, eq):
+        term_list = list(filter(None, re.split('[.,;\+\-\/\*()\[\]]', eq)))
+        return [term.strip() for term in term_list]
     
     def components_str(self):
         c_str = ''

@@ -74,10 +74,16 @@ class IntegrateBlock(Block):
                 # filter.generate()
 
         # operators
-        ops = OperatorsNode(self._head, self.equations_str())
+        ops = OperatorsNode(self._head)
         self._head.add_child(ops)
+        i = 0
         for operator in self.operators:
+            operator.set_ops_parent(ops)
+            # cdata after last operator
+            if i + 1 == len(self.operators):
+                operator.tail = self.equations_str()
             operator.generate()
+            i += 1
         
         # integration vectors
         int_vecs = IntegrationVectorsNode(ops, self.int_vecs_str())

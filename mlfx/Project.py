@@ -1,6 +1,12 @@
 from typing import Dict
 
 from lxml import etree
+from plumbum import local
+from plumbum.cmd import xmds2, python3
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+
 from .nodes import *
 from .blocks import *
 
@@ -12,6 +18,7 @@ class Project(object):
 		self._blocks = []
 		self._components = {} # {component: block}, ...
 		self._globals = []
+		self._arguments = []
 	
 	def generate(self, filename: str):
 		"""
@@ -24,7 +31,8 @@ class Project(object):
 		# scan over blocks for components
 		for block in self._blocks:
 			# don't register integrate components
-			if type(block) is IntegrateBlock:
+			# if type(block) is IntegrateBlock or SamplingGroupBlock:
+			if isinstance(block, IntegrateBlock) or isinstance(block, SamplingGroupBlock):
 				continue
 			for component in block.components:
 				self._components.update({component: block})
@@ -34,7 +42,7 @@ class Project(object):
 			dependencies = []
 			for eq in block.equations:
 				for comp in self._components.keys():
-					if comp in block.get_rhs(eq):
+					if comp in block.get_terms(block.get_rhs(eq)):
 						dependencies.append(comp)
 			if type(block) is IntegrateBlock:
 				# find integration vectors
@@ -42,6 +50,8 @@ class Project(object):
 					block.add_int_vec(self._components[component].name)
 			if dependencies:
 				for d in dependencies:
+					if self._components[d].name in block.dependencies:
+						continue
 					if type(block) is IntegrateBlock:
 						# dont have integration vectors as dependencies
 						if self._components[d].name in block.int_vecs:
@@ -71,7 +81,13 @@ class Project(object):
 		# features
 		features = FeaturesNode(self._node)
 		self._node.add_child(features)
-		# ignore arguments for now
+		# arguments
+		if self._arguments:
+			arguments = ArgumentsNode(features)
+			features.add_child(arguments)
+			for argument in self._arguments:
+				a = ArgumentNode(arguments, argument[0], argument[1], argument[2])
+				arguments.add_child(a)
 		if 'auto_vectorise' in config:
 			if config['auto_vectorise'] == True:
 				auto_vectorise = AutoVectoriseNode(features)
@@ -160,9 +176,82 @@ class Project(object):
 		# self._node.from_xml(xml)
 		pass
 
-	def run(self):
+	def run(self, filename, sim_name, fig_name):
 		"""Runs the XMDS2 file"""
-		pass
+		# compile
+		chain1 = xmds2[filename + '.xmds']
+		chain1()
+
+		k_min = 1.0
+		k_max = 2.0
+		no_steps = 50
+		step_size = (k_max - k_min) / no_steps
+		o_max = 0
+		k = k_min
+		k_opt = k
+
+		# loop
+		while k <= k_max:
+			chain2 = local['./' + sim_name]
+			chain2('--k=' + str(k))
+
+			f = h5py.File(sim_name + '.h5', 'r')
+			dset3 = f['5']
+			overlap = float(dset3['overlap1'][...])
+			f.close()
+
+			if overlap > o_max:
+				o_max = overlap
+				k_opt = k
+			k += step_size
+
+		# k_opt = 1
+		
+		# optimal k
+		print('k_opt=' + str(round(k_opt, 4)))
+
+		chain2 = local['./' + sim_name]
+		chain2('--k=' + str(k_opt))
+
+		f = h5py.File(sim_name + '.h5', 'r')
+
+		dset1 = f['1']
+		dset2 = f['2']
+		dset3 = f['3']
+		dset4 = f['4']
+		dset5 = f['5']
+
+		d1 = dset1['density']
+		x1 = dset1['x']
+
+		l3 = dset3['l']
+		t3 = dset3['t']
+
+		d4 = dset4['density2']
+		x4 = dset4['x']
+
+		overlap = float(dset5['overlap1'][...])
+		print('overlap=' + str(round(overlap, 4)))
+
+		# final state density plot
+		fig, ax = plt.subplots()  # Create a figure containing a single axes.
+		ax.plot(x1[...], d1[...], label='final state')  # Plot some data on the axes.
+		ax.plot(x4[...], d4[...], label='desired state')  # Plot some data on the axes.
+		ax.set_xlabel('x')
+		ax.set_ylabel('Density')
+		ax.set_title('Final state density, k = ' + str(round(k_opt, 4)) + ', overlap = ' + str(round(overlap, 4)))
+		ax.legend()
+		fig.savefig(fig_name + '.png')
+
+		# timing function plot
+		fig2, ax2 = plt.subplots()  # Create a figure containing a single axes.
+		ax2.plot(t3[...], l3[...])  # Plot some data on the axes.
+		ax2.set_xlabel('t')
+		ax2.set_ylabel('lambda')
+		ax2.set_title('Timing function, k = ' + str(round(k_opt, 4)))
+		fig2.savefig('lambda.png')
+		
+		f.close()
 
 	### nodes
 
@@ -196,8 +285,6 @@ class Project(object):
 		desc = DescriptionNode(text, self._node)
 		self._node.add_child(desc)
 	
-	### blocks
-	
 	def new_vector(self, name: str, component: str, type: str, dimensions: str, initialisation: str):
 		# only consider type & dimensions, no dependencies
 		vector = VectorNode(self._node, name, type, dimensions)
@@ -219,6 +306,8 @@ class Project(object):
 		comp_vector.add_child(eval)
 	
 	# ignore filters
+
+	### blocks
 	
 	def sequence(self):
 		# ignore nested sequences for now
@@ -260,3 +349,7 @@ class Project(object):
 	
 	def add_global(self, glob):
 		self._globals.append(glob)
+	
+	def add_argument(self, name, type, default_value):
+		arg_tup = (name, type, default_value)
+		self._arguments.append(arg_tup)

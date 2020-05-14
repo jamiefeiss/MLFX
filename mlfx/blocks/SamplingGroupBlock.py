@@ -30,7 +30,7 @@ class SamplingGroupBlock(Block):
             self._head.comment = self.comment_str
 
         # components (moments)
-        print(self.components)
+        # print(self.components)
         m = MomentsNode(self._head, self.components_str())
         self._head.add_child(m)
 

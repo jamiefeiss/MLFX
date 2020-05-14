@@ -24,6 +24,7 @@ class Node(ABC):
         self._parent = parent
         self._text = text
         self._is_cdata = is_cdata
+        self._tail = '' # only for CDATA
         self._comment = ''
         self._attributes = {}
         self._children = []
@@ -63,6 +64,9 @@ class Node(ABC):
             self._element.text = etree.CDATA(self._text)
         else:
             self._element.text = self._text
+        
+        if self._tail:
+            self._element.tail = etree.CDATA(self._tail)
         
         for child in self._children:
             child.generate()
@@ -162,6 +166,26 @@ class Node(ABC):
             is_cdata (bool): Whether the text is CDATA or not
         """
         self._is_cdata = is_cdata
+    
+    @property
+    def tail(self) -> str:
+        """
+        The tail of the node
+        
+        Returns:
+            The tail after the node
+        """
+        return self._tail
+    
+    @tail.setter
+    def tail(self, tail: str):
+        """
+        Sets the tail of the node
+        
+        Args:
+            tail (str): The tail after the node
+        """
+        self._tail = tail
     
     @property
     def comment(self) -> str:

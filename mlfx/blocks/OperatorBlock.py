@@ -12,13 +12,20 @@ class OperatorBlock(Block):
         self.kind = kind
         self.type = type
         self.constant = constant
+        self.tail = ''
+
+    def set_ops_parent(self, parent):
+        self.ops_parent = parent
     
     def generate(self):
-        self._head = OperatorNode(self._parent, self.kind)
-        self._parent.add_child(self._head)
+        self._head = OperatorNode(self.ops_parent, self.kind)
+        self.ops_parent.add_child(self._head)
 
         # equations
         self._head.text = self.equations_str()
+
+        if self.tail:
+            self._head.tail = self.tail
 
         # attributes
         if self.type is not None:
