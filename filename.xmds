@@ -11,9 +11,9 @@
     <benchmark/>
     <fftw plan="patient"/>
     <globals><![CDATA[
-const real T_i = 1e-1; // Imaginary time duration
-const real T = 10.0; // End time
-const real x_0 = 10.0; // Final position
+const real T_i = 0.1;
+const real T = 10.0;
+const real x_0 = 10.0;
 ]]></globals>
     <validation kind="run-time"/>
   </features>

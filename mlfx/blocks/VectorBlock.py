@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Type, List
 
 from ..nodes import *
 from ..blocks import *
@@ -6,8 +6,24 @@ from ..blocks import *
 class VectorBlock(Block):
     """
     Vector block
+
+    Args:
+        parent (SimulationNode): The parent node
+        type (str): The vector type
+        dimensions (str): The vector dimensions
+        initial_basis (str): The initial basis
+
+    Attributes:
+        type (str): The vector type
+        dimensions (str): The vector dimensions
+        initial_basis (str): The initial basis
+        name (str): The name of the block
+        comment_str (str): The comment
+        equations (List[str]): The list of equations
+        components (List[str])): The list of components
+        dependencies (List[str])): The list of dependencies
     """
-    def __init__(self, parent, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
+    def __init__(self, parent: SimulationNode, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
         super().__init__(parent)
         self.type = type
         self.dimensions = dimensions
@@ -19,6 +35,7 @@ class VectorBlock(Block):
     # init file
     
     def generate(self):
+        """Generates the vector block"""
         # attributes
         if self.type is not None:
             self._head.add_attribute('type', self.type)

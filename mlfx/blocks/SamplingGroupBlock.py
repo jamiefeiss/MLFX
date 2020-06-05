@@ -1,13 +1,25 @@
-from typing import Optional
-
 from ..nodes import *
 from ..blocks import *
 
 class SamplingGroupBlock(Block):
     """
     SamplingGroup block
+
+    Args:
+        parent (OutputNode): The parent node
+        basis (str): The output dimension basis
+        initial_sample (str): Whether the output is sampled initially
+
+    Attributes:
+        basis (str): The output dimension basis
+        initial_sample (str): Whether the output is sampled initially
+        name (str): The name of the block
+        comment_str (str): The comment
+        equations (List[str]): The list of equations
+        components (List[str])): The list of components
+        dependencies (List[str])): The list of dependencies
     """
-    def __init__(self, parent, basis, initial_sample):
+    def __init__(self, parent: OutputNode, basis: str, initial_sample: str):
         super().__init__(parent)
         self.basis = basis
         self.initial_sample = initial_sample
@@ -16,6 +28,7 @@ class SamplingGroupBlock(Block):
         self._parent.add_child(self._head)
     
     def generate(self):
+        """Generates the sampling group block"""
         # attributes
         if self.basis is not None:
             self._head.add_attribute('basis', self.basis)
@@ -30,7 +43,6 @@ class SamplingGroupBlock(Block):
             self._head.comment = self.comment_str
 
         # components (moments)
-        # print(self.components)
         m = MomentsNode(self._head, self.components_str())
         self._head.add_child(m)
 

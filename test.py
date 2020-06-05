@@ -30,11 +30,16 @@ config = {
     ]
 }
 
-p.add_global('const real T_i = 1e-1; // Imaginary time duration')
-p.add_global('const real T = 10.0; // End time')
-p.add_global('const real x_0 = 10.0; // Final position')
+# p.add_global('const real T_i = 1e-1; // Imaginary time duration')
+# p.add_global('const real T = 10.0; // End time')
+# p.add_global('const real x_0 = 10.0; // Final position')
 
-p.add_argument('k', 'real', '1.0')
+p.add_global('real', 'T_i', 1e-1)
+p.add_global('real', 'T', 10.0)
+p.add_global('real', 'x_0', 10.0)
+
+# p.add_argument('k', 'real', '1.0')
+p.parameter('real', 'k', 1.0, 1.0, 2.0)
 
 p.config(config)
 
@@ -125,4 +130,4 @@ s5.comment('overlap of final state')
 
 p.generate('filename')
 
-p.run('filename', config['name'], 'fig')
+p.optimise('filename', config['name'], 'fig')

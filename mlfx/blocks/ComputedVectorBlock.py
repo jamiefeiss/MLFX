@@ -6,8 +6,24 @@ from ..blocks import *
 class ComputedVectorBlock(Block):
     """
     ComputedVector block
+
+    Args:
+        parent (SimulationNode): The parent node
+        type (str): The computed vector type
+        dimensions (str): The computed vector dimensions
+        initial_basis (str): The initial basis
+
+    Attributes:
+        type (str): The computed vector type
+        dimensions (str): The computed vector dimensions
+        initial_basis (str): The initial basis
+        name (str): The name of the block
+        comment_str (str): The comment
+        equations (List[str]): The list of equations
+        components (List[str])): The list of components
+        dependencies (List[str])): The list of dependencies
     """
-    def __init__(self, parent, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
+    def __init__(self, parent: SimulationNode, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
         super().__init__(parent)
         self.type = type
         self.dimensions = dimensions
@@ -17,6 +33,7 @@ class ComputedVectorBlock(Block):
         self._parent.add_child(self._head)
     
     def generate(self):
+        """Generates the computed vector block"""
         # attributes
         if self.type is not None:
             self._head.add_attribute('type', self.type)
