@@ -314,6 +314,37 @@ class Project(object):
 		
 		f.close()
 	
+	def plot2(self, sim_name):
+		# plots for shockwave density & fourier transform
+		f = h5py.File(sim_name + '.h5', 'r')
+
+		dset1 = f['1'] # x
+		dset2 = f['2'] # k
+
+		d1 = dset1['density']
+		x1 = dset1['x']
+
+		d2 = dset2['k_density']
+		x2 = dset2['kx']
+
+		# density plot
+		fig1, ax1 = plt.subplots()
+		ax1.plot(x1[...], d1[...])
+		ax1.set_xlabel('x')
+		ax1.set_ylabel('Density')
+		ax1.set_title('State density')
+		ax1.legend()
+		fig1.savefig('density.png')
+
+		# fourier density plot
+		fig2, ax2 = plt.subplots()
+		ax2.plot(x2[...], d2[...])
+		ax2.set_xlabel('kx')
+		ax2.set_ylabel('Density')
+		ax2.set_title('Fourier transform of density')
+		ax2.legend()
+		fig2.savefig('k_density.png')
+
 	### nodes
 
 	def new_name(self, text: str):
