@@ -107,7 +107,7 @@ venv.bak/
 .vscode/
 
 # compiled & pictures
-tests/*.png
-tests/*.cc
-tests/*.h5
-tests/*.xsil
+tests/*/*/*.png
+tests/*/*/*.cc
+tests/*/*/*.h5
+tests/*/*/*.xsil
