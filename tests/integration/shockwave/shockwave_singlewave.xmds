@@ -1,0 +1,189 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<simulation xmds-version="2">
+	<name>shockwave_single</name>
+	<author>Jamie Feiss</author>
+	<description>
+		Testing shockwave interferometer with a single wavepacket
+	</description>
+
+	<features>
+		<auto_vectorise/>
+		<benchmark/>
+		<fftw plan="patient"/>
+		<globals>
+			<![CDATA[
+                const real R = 1; // ring radius
+                const real Omega = 0.125; // rotation rate
+				const real delta = 0.01; // small Omega change for differentiation
+                const real sigma = 0.5; // gaussian width
+                const real L = 2 * M_PI * R; // length of line
+
+				// const real C_plus = sqrt(2)  / (2 * sqrt(sigma * sqrt(M_PI / 2)));
+				const real C_plus = 1;
+				const real C_minus = C_plus;
+				const real x_plus = L / 4;
+				const real x_minus = L / 4;
+
+				const real k_0 = R * Omega;
+				const real k_kick = 20;
+				const real k_plus = k_0 + k_kick;
+				const real k_minus = k_0 - k_kick;
+
+				// forward
+				const real k_0_forward = R * (Omega + delta);
+				const real k_plus_forward = k_0_forward + k_kick;
+				const real k_minus_forward = k_0_forward - k_kick;
+
+				// backward
+				const real k_0_back = R * (Omega - delta);
+				const real k_plus_back = k_0_back + k_kick;
+				const real k_minus_back = k_0_back - k_kick;
+
+				const real T_c = M_PI * R / k_kick; // collision time
+                const real t_int = 2 * T_c; // integration time
+
+				const real factor = 1;
+			]]>		
+		</globals>
+		<validation kind="run-time"/>
+	</features>
+
+	<geometry>
+		<propagation_dimension>t</propagation_dimension>
+		<transverse_dimensions>
+			<dimension name="x" lattice="100" domain="(-L/2, L/2)"/>
+		</transverse_dimensions>
+	</geometry>
+
+	<!-- Wavefunction -->
+	<vector name="wavefunction" type="complex" dimensions="x">
+		<components>psi_plus psi_minus psi_plus_forward psi_minus_forward psi_plus_back psi_minus_back</components>
+		<initialisation>
+			<![CDATA[				
+				psi_plus = C_plus * exp(i * k_plus * (x - x_plus)) * exp(-pow(x - x_plus, 2) / (2 * pow(sigma, 2)));
+				psi_minus = C_minus * exp(i * k_minus * (x - x_minus)) * exp(-pow(x - x_minus, 2) / (2 * pow(sigma, 2)));
+
+				// forward
+				psi_plus_forward = C_plus * exp(i * k_plus_forward * (x - x_plus)) * exp(-pow(x - x_plus, 2) / (2 * pow(sigma, 2)));
+				psi_minus_forward = C_minus * exp(i * k_minus_forward * (x - x_minus)) * exp(-pow(x - x_minus, 2) / (2 * pow(sigma, 2)));
+
+				// backward
+				psi_plus_back = C_plus * exp(i * k_plus_back * (x - x_plus)) * exp(-pow(x - x_plus, 2) / (2 * pow(sigma, 2)));
+				psi_minus_back = C_minus * exp(i * k_minus_back * (x - x_minus)) * exp(-pow(x - x_minus, 2) / (2 * pow(sigma, 2)));
+			]]>
+		</initialisation>
+	</vector>
+
+	<sequence>
+		<!-- schrodinger equation -->
+		<integrate algorithm="ARK45" interval="t_int" tolerance="1e-8">
+			<samples>100 0 100 100</samples>
+			<operators>
+				<operator kind="ip" type="imaginary" constant="yes">
+					<![CDATA[
+						Ltt = -i * pow(kx, 2) / 2 + i * Omega * kx * factor;
+						Ltt_forward = -i * pow(kx, 2) / 2 + i * (Omega + delta) * kx * factor;
+						Ltt_back = -i * pow(kx, 2) / 2 + i * (Omega - delta) * kx * factor;
+					]]>
+					<operator_names>Ltt Ltt_forward Ltt_back</operator_names>
+				</operator>
+                <integration_vectors>wavefunction</integration_vectors>
+					<![CDATA[
+						dpsi_plus_dt = Ltt[psi_plus];
+						dpsi_minus_dt = Ltt[psi_minus];
+
+						// forward
+						dpsi_plus_forward_dt = Ltt_forward[psi_plus_forward];
+						dpsi_minus_forward_dt = Ltt_forward[psi_minus_forward];
+
+						// backward
+						dpsi_plus_back_dt = Ltt_back[psi_plus_back];
+						dpsi_minus_back_dt = Ltt_back[psi_minus_back];
+					]]>
+			</operators>
+		</integrate>
+	</sequence>
+
+	<output>
+		<!-- density -->
+		<sampling_group basis="x" initial_sample="yes">
+            <moments>density density_diff</moments>
+			<dependencies>wavefunction</dependencies>
+			<![CDATA[
+                density = mod2(psi_plus + psi_minus);
+				density_diff = (mod2(psi_plus_forward + psi_minus_forward) - mod2(psi_plus_back + psi_minus_back)) / (2 * delta);
+			]]>
+		</sampling_group>
+
+		<!-- constants -->
+		<sampling_group basis="" initial_sample="yes">
+            <moments>t_c k k_2 r phi omega</moments>
+			<dependencies></dependencies>
+			<![CDATA[
+                t_c = T_c; // collision time
+				k = k_kick; // k
+				k_2 = 2 * k_kick; // 2k
+				r = R; // radius
+				phi = 2 * Omega * M_PI * pow(R, 2); // Sagnac phase-shift
+				omega = Omega;
+			]]>
+		</sampling_group>
+
+		<!-- fourier density -->
+		<sampling_group basis="kx" initial_sample="yes">
+			<computed_vector name="density_wavefunction" dimensions="x" type="complex">
+				<components>density</components>
+				<evaluation>
+					<dependencies>wavefunction</dependencies>
+					<![CDATA[
+						density = mod2(psi_plus + psi_minus);
+					]]>
+				</evaluation>
+			</computed_vector>
+
+            <moments>k_density_re k_density_im</moments>
+			<dependencies>density_wavefunction</dependencies>
+			<![CDATA[
+                k_density_re = density.Re();
+				k_density_im = density.Im();
+			]]>
+		</sampling_group>
+
+		<!-- integration -->
+		<sampling_group basis="x(0)" initial_sample="yes">
+			<computed_vector name="fq_terms" dimensions="x" type="complex">
+				<components>psi psi_forward psi_back psi_diff density_diff term_1 term_2 f_c</components>
+				<evaluation>
+					<dependencies>wavefunction</dependencies>
+					<![CDATA[
+						psi = psi_plus + psi_minus;
+						psi_forward = psi_plus_forward + psi_minus_forward;
+						psi_back = psi_plus_back + psi_minus_back;
+
+						psi_diff = (psi_forward - psi_back) / (2 * delta);
+						density_diff = (mod2(psi_forward) - mod2(psi_back)) / (2 * delta);
+
+						// terms for QFI
+						term_1 = conj(psi_diff) * psi_diff;
+						term_2 = conj(psi) * psi_diff;
+
+						// CFI
+						f_c = pow(density_diff, 2) / mod2(psi);
+					]]>
+				</evaluation>
+			</computed_vector>
+
+            <moments>F_Q_1 F_Q_2_re F_Q_2_im F_C</moments>
+			<dependencies>fq_terms wavefunction</dependencies>
+			<![CDATA[
+				// QFI
+                F_Q_1 = term_1.Re(); // 1st term
+				F_Q_2_re = term_2.Re(); // 2nd term
+				F_Q_2_im = term_2.Im(); // 2nd term
+
+				// CFI
+				F_C = f_c.Re(); // classical fisher info
+			]]>
+		</sampling_group>
+	</output>
+</simulation>
