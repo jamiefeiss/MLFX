@@ -1,2 +1,13 @@
+cycler==0.10.0
+executing==0.4.3
+h5py==2.10.0
+kiwisolver==1.2.0
 lxml==4.5.0
+matplotlib==3.2.1
+numpy==1.18.4
 pkg-resources==0.0.0
+plumbum==1.6.9
+pyparsing==2.4.7
+python-dateutil==2.8.1
+python-varname==0.1.1
+six==1.14.0

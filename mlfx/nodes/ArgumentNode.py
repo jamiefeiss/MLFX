@@ -1,8 +1,8 @@
 from .Node import Node
 
 class ArgumentNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('argument', parent)
+    def __init__(self, parent, name, type, default_value) :
+        super().__init__('argument', parent, name = name, type = type, default_value = default_value)
 
         # self.__allowed_attributes = {
         #     'name': '',

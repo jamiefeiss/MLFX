@@ -1,8 +1,8 @@
 from .Node import Node
 
 class IntegrateNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('integrate', parent)
+    def __init__(self, parent, algorithm, interval) :
+        super().__init__('integrate', parent, algorithm = algorithm, interval = interval)
     
     def validate(self) :
         if not self._attributes :

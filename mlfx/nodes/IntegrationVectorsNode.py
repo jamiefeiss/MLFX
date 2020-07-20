@@ -1,8 +1,8 @@
 from .Node import Node
 
 class IntegrationVectorsNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('integration_vectors', parent)
+    def __init__(self, parent, text) :
+        super().__init__('integration_vectors', parent, text)
     
     def validate(self) :
         if self._attributes :

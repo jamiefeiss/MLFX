@@ -1,8 +1,8 @@
 from .Node import Node
 
 class OperatorNamesNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('operator_names', parent)
+    def __init__(self, parent, text) :
+        super().__init__('operator_names', parent, text)
     
     def validate(self) :
         if self._attributes :

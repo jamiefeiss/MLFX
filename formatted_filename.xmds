@@ -1,0 +1,206 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<simulation xmds-version="2">
+	<name>bec_transport_generated</name>
+	<author>Jamie Feiss</author>
+	<description>
+		Testing generating the BEC transport problem using the library
+	</description>
+
+	<features>
+		<arguments>
+			<argument name="k" type="real" default_value="1.0"/>
+		</arguments>
+		<auto_vectorise/>
+		<benchmark/>
+		<fftw plan="patient"/>
+		<globals>
+			<![CDATA[
+				const real T_i = 1e-1; // Imaginary time duration
+				const real T = 10.0; // End time
+				const real x_0 = 10.0; // Final position
+			]]>		
+		</globals>
+		<validation kind="run-time"/>
+	</features>
+
+	<geometry>
+		<propagation_dimension>t</propagation_dimension>
+		<transverse_dimensions>
+			<dimension name="x" lattice="200" domain="(-5, 20)"/>
+		</transverse_dimensions>
+	</geometry>
+
+	<!--Wavefunction-->
+	<vector name="wavefunction" type="complex" dimensions="x">
+		<components>psi</components>
+		<initialisation>
+			<![CDATA[
+				psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2) / 2.0); // ground state of HO
+			]]>		
+		</initialisation>
+	</vector>
+
+	<!--Comparison wavefunction-->
+	<vector name="wavefunction_final" type="complex" dimensions="x">
+		<components>psi2</components>
+		<initialisation>
+			<![CDATA[
+				psi2 = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x - x_0, 2) / 2.0); // ground state of HO
+			]]>		
+		</initialisation>
+	</vector>
+
+	<!--Timing function (sigmoid)-->
+	<computed_vector name="timing_function" type="real" dimensions="">
+		<components>lambda</components>
+		<evaluation>
+			<![CDATA[
+				lambda = 0;
+				if (t <= T_i) {
+					lambda = 0;
+				} else if (t >= (T + T_i)) {
+					lambda = 1;
+				} else {
+					lambda = 1.0 - (1.0 / (1.0 + (1.0/pow(((1.0 / ((t - T_i) / T)) - 1.0), k))));
+				}
+			]]>		
+		</evaluation>
+	</computed_vector>
+
+	<!--Initial harmonic potential-->
+	<vector name="potential" type="real" dimensions="x">
+		<components>V</components>
+		<initialisation>
+			<![CDATA[
+				V = pow(x, 2) / 2.0;
+			]]>		
+		</initialisation>
+	</vector>
+
+	<!--Potential at final position-->
+	<vector name="potential2" type="real" dimensions="x">
+		<components>V2</components>
+		<initialisation>
+			<![CDATA[
+				V2 = pow(x - x_0, 2) / 2.0;
+			]]>		
+		</initialisation>
+	</vector>
+
+	<!--Moving harmonic potential-->
+	<computed_vector name="moving_potential" type="real" dimensions="x">
+		<components>Vt</components>
+		<evaluation>
+			<![CDATA[
+				Vt = pow(x - lambda * x_0, 2) / 2.0;
+			]]>
+			<dependencies>timing_function</dependencies>
+		</evaluation>
+	</computed_vector>
+
+	<sequence>
+		<!--imaginary time to find ground state-->
+		<integrate algorithm="RK4" interval="T_i" steps="10000">
+			<samples>0 0 0 0 0</samples>
+			<operators>
+				<operator kind="ip" type="real" constant="yes">
+					<![CDATA[
+						Ltt = -pow(kx, 2) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - (V + mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+				<dependencies>potential</dependencies>
+			</operators>
+		</integrate>
+
+		<!--gpe-->
+		<integrate algorithm="ARK45" interval="T" tolerance="1e-8">
+			<samples>50 50 50 0 0</samples>
+			<operators>
+				<operator kind="ip" type="imaginary" constant="yes">
+					<![CDATA[
+						Ltt = -i * pow(kx, 2) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - i * (Vt + mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+				<dependencies>moving_potential</dependencies>
+			</operators>
+		</integrate>
+
+		<!--Ground state at final position-->
+		<integrate algorithm="RK4" interval="T_i" steps="10000">
+			<samples>0 0 0 1 1</samples>
+			<operators>
+				<operator kind="ip" type="real" constant="yes">
+					<![CDATA[
+						Ltt = -pow(kx, 2) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi2_dt = Ltt[psi2] - (V2 + mod2(psi2)) * psi2;
+					]]>
+				<integration_vectors>wavefunction_final</integration_vectors>
+				<dependencies>potential2</dependencies>
+			</operators>
+		</integrate>
+	</sequence>
+
+	<output>
+		<!--state-->
+		<sampling_group basis="x" initial_sample="no">
+			<![CDATA[
+				psi_real = psi.Re();
+				psi_imag = psi.Im();
+				density = mod2(psi);
+			]]>
+			<moments>psi_real psi_imag density</moments>
+			<dependencies>wavefunction</dependencies>
+		</sampling_group>
+
+		<!--potential-->
+		<sampling_group basis="x" initial_sample="no">
+			<![CDATA[
+				p = Vt;
+			]]>
+			<moments>p</moments>
+			<dependencies>moving_potential</dependencies>
+		</sampling_group>
+
+		<!--timing function-->
+		<sampling_group basis="x(1)" initial_sample="yes">
+			<![CDATA[
+				l = lambda;
+			]]>
+			<moments>l</moments>
+			<dependencies>timing_function</dependencies>
+		</sampling_group>
+
+		<!--ground state at final position-->
+		<sampling_group basis="x" initial_sample="no">
+			<![CDATA[
+				density2 = mod2(psi2);
+			]]>
+			<moments>density2</moments>
+			<dependencies>wavefunction_final</dependencies>
+		</sampling_group>
+
+		<!--overlap of final state-->
+		<sampling_group basis="x(0)" initial_sample="no">
+			<![CDATA[
+				overlap1 = abs(psi)*abs(psi2);
+				overlap2 = mod2(conj(psi2)*psi);
+			]]>
+			<moments>overlap1 overlap2</moments>
+			<dependencies>wavefunction wavefunction_final</dependencies>
+		</sampling_group>
+	</output>
+</simulation>

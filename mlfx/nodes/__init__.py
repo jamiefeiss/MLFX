@@ -33,6 +33,7 @@ from .IntegrateNode import IntegrateNode
 from .IntegrationVectorsNode import IntegrationVectorsNode
 from .MomentsNode import MomentsNode
 from .NameNode import NameNode
+from .Node import Node
 from .NoiseVectorNode import NoiseVectorNode
 from .OpenMPNode import OpenMPNode
 from .OperatorNamesNode import OperatorNamesNode
@@ -41,6 +42,7 @@ from .OperatorsNode import OperatorsNode
 from .OutputNode import OutputNode
 from .PrecisionNode import PrecisionNode
 from .PropagationDimensionNode import PropagationDimensionNode
+from .SamplesNode import SamplesNode
 from .SamplingGroupNode import SamplingGroupNode
 from .SequenceNode import SequenceNode
 from .SimulationNode import SimulationNode
@@ -80,6 +82,7 @@ __all__ = [
     'IntegrationVectorsNode',\
     'MomentsNode',\
     'NameNode',\
+    'Node',\
     'NoiseVectorNode',\
     'OpenMPNode',\
     'OperatorNamesNode',\
@@ -88,6 +91,7 @@ __all__ = [
     'OutputNode',\
     'PrecisionNode',\
     'PropagationDimensionNode',\
+    'SamplesNode',\
     'SamplingGroupNode',\
     'SequenceNode',\
     'SimulationNode',\
