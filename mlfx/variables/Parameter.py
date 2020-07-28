@@ -23,10 +23,11 @@ class Parameter(Variable):
         comment (str): The variable comment
         optimal: (int, float): The variable's optimal value
     """
-    def __init__(self, type: str, name: str, value: Union[int, float], min: Union[int, float], max: Union[int, float]):
+    def __init__(self, type: str, name: str, value: Union[int, float], min: Union[int, float], max: Union[int, float], index: int):
         super().__init__(type, name, value)
         self.min = min
         self.max = max
+        self.index = index
     
     def set_optimal(self, optimal: Union[int, float]):
         """

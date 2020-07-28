@@ -39,7 +39,7 @@ p.add_global('real', 'T', 10.0)
 p.add_global('real', 'x_0', 10.0)
 
 # p.add_argument('k', 'real', '1.0')
-p.parameter('real', 'k', 1.0, 1.0, 2.0)
+p.parameter('real', 'k', default_value=1.0, min=1.0, max=2.0)
 
 p.config(config)
 

@@ -10,6 +10,7 @@ import numpy as np
 from .nodes import *
 from .blocks import *
 from .variables import *
+from NeuralNetwork import NeuralNetwork
 
 class Project(object):
 	"""Represents the XMDS2 simulation"""
@@ -20,6 +21,7 @@ class Project(object):
 		self._components = {} # {component: Block, ...}
 		self._globals = [] # [Global, ....]
 		self._parameters = [] # [Parameter, ...]
+		self._no_params = 0
 	
 	def generate(self, filename: str):
 		"""
@@ -78,6 +80,7 @@ class Project(object):
 		"""
 		if 'name' in config:
 			self.new_name(config['name'])
+			self.sim_name = config['name']
 		if 'author' in config:
 			self.new_author(config['author'])
 		if 'description' in config:
@@ -176,6 +179,12 @@ class Project(object):
 			for dim in config['trans_dim']:
 				d = DimensionNode(transverse_dimensions, dim['name'], dim['lattice'], dim['domain'])
 				transverse_dimensions.add_child(d)
+		
+		# neural network setup
+		if 'ml_settings' in config:
+			self.network = NeuralNetwork(parameters=self._parameters, settings=config['ml_settings'])
+			self.network.construct_network()
+			self.network.generate_training_input()
 
 	def parse(self, xml):
 		"""Parses an XMDS2 file"""
@@ -192,7 +201,7 @@ class Project(object):
 		chain = xmds2[filename + '.xmds']
 		chain()
 
-	def run(self, sim_name: str, param_vals: List[Tuple]):
+	def run(self, param_vals: List[Tuple]):
 		"""
 		Runs the XMDS2 file with parameter values
 		
@@ -201,11 +210,31 @@ class Project(object):
 			param_vals (List[Tuple]): A list of tuples containing parameter names & values
 		"""
 		# param_vals tuple (name, value)
-		chain = local['./' + sim_name]
+		chain = local['./' + self.sim_name]
 		for param in param_vals:
 			chain('--' + param[0] + '=' + str(param[1]))
+	
+	def objective_function(self, x, cost_fn):
+		# run sim
+		param_vals = []
+		for i in range(len(x)):
+			param = [param for param in self._parameters if param.index == i]
+			param_vals.append((param.name, x[i]))
+		self.run(param_vals)
 
-	def optimise(self, filename: str, sim_name: str, fig_name: str):
+		# open h5 file
+		f = h5py.File(self.sim_name + '.h5', 'r')
+		dataset = f['1']
+		output = dataset[self.cost_name]
+		return cost_fn(output)
+		
+	def optimise(self, cost_fn): # requires user-defined cost function for post-processing output variable
+		self.compile(self.filename)
+		self.network.generate_training_output(self.objective_function, cost_fn)
+		self.network.train()
+		self.network.find_optimal_params()
+
+	def optimise2(self, filename: str, sim_name: str, fig_name: str):
 		"""
 		Optimises over parameter set
 		
@@ -539,5 +568,9 @@ class Project(object):
 			min (int, float): The parameter's minimum value
 			max (int, float): The parameter's maximum value
 		"""
-		param = Parameter(type, name, default_value, min, max)
+		param = Parameter(type, name, default_value, min, max, index=self._no_params)
 		self._parameters.append(param)
+		self._no_params += 1
+	
+	def cost_variable(self, cost_variable: str):
+		self.cost_name = cost_variable
