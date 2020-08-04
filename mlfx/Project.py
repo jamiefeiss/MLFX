@@ -1,4 +1,5 @@
 from typing import Dict, Tuple, List, Optional, Union, Type
+import time
 
 from lxml import etree
 from plumbum import local
@@ -10,7 +11,20 @@ import numpy as np
 from .nodes import *
 from .blocks import *
 from .variables import *
-from NeuralNetwork import NeuralNetwork
+from .NeuralNetwork import NeuralNetwork
+
+def timer(func):
+    """A timer decorator"""
+    def function_timer(*args, **kwargs):
+        """A nested function for timing other functions"""
+        start = time.time()
+        value = func(*args, **kwargs)
+        end = time.time()
+        runtime = end - start
+        msg = "The runtime for {func} took {time} seconds to complete"
+        print(msg.format(func=func.__name__, time=round(runtime, 4)))
+        return value
+    return function_timer
 
 class Project(object):
 	"""Represents the XMDS2 simulation"""
@@ -23,6 +37,7 @@ class Project(object):
 		self._parameters = [] # [Parameter, ...]
 		self._no_params = 0
 	
+	@timer
 	def generate(self, filename: str):
 		"""
 		Generates the XMDS2 file
@@ -30,6 +45,8 @@ class Project(object):
 		Args:
 			filename (str): The name of the output .xmds file
 		"""
+		print('Generating XML...')
+		self.filename = filename
 		# dependencies
 		# scan over blocks for components
 		for block in self._blocks:
@@ -69,8 +86,9 @@ class Project(object):
 
 		# write to file
 		self._tree = etree.ElementTree(self._node.element)
-		self._tree.write(filename + '.xmds', pretty_print = True, xml_declaration = True, encoding = "UTF-8")
+		self._tree.write(self.filename + '.xmds', pretty_print = True, xml_declaration = True, encoding = "UTF-8")
 	
+	@timer
 	def config(self, config: Dict):
 		"""
 		Sets the configuration for the simulation
@@ -78,13 +96,18 @@ class Project(object):
 		Args:
 			config (Dict): Dictionary of the configuration
 		"""
-		if 'name' in config:
-			self.new_name(config['name'])
-			self.sim_name = config['name']
-		if 'author' in config:
-			self.new_author(config['author'])
-		if 'description' in config:
-			self.new_description(config['description'])
+		print('Configuring simulation...')
+		xmds_config = {}
+		if 'xmds_settings' in config:
+			xmds_config = config['xmds_settings']
+
+		if 'name' in xmds_config:
+			self.new_name(xmds_config['name'])
+			self.sim_name = xmds_config['name']
+		if 'author' in xmds_config:
+			self.new_author(xmds_config['author'])
+		if 'description' in xmds_config:
+			self.new_description(xmds_config['description'])
 		
 		# features
 		features = FeaturesNode(self._node)
@@ -97,41 +120,41 @@ class Project(object):
 				# a = ArgumentNode(arguments, argument[0], argument[1], argument[2])
 				p = parameter.generate(arguments)
 				arguments.add_child(p)
-		if 'auto_vectorise' in config:
-			if config['auto_vectorise'] == True:
+		if 'auto_vectorise' in xmds_config:
+			if xmds_config['auto_vectorise'] == True:
 				auto_vectorise = AutoVectoriseNode(features)
 				features.add_child(auto_vectorise)
-		if 'benchmark' in config:
-			if config['benchmark'] == True:
+		if 'benchmark' in xmds_config:
+			if xmds_config['benchmark'] == True:
 				benchbark = BenchmarkNode(features)
 				features.add_child(benchbark)
-		if 'bing' in config:
-			if config['bing'] == True:
+		if 'bing' in xmds_config:
+			if xmds_config['bing'] == True:
 				bing = BingNode(features)
 				features.add_child(bing)
 		# ignore cflags for now
-		if 'chunked_output' in config:
-			if config['chunked_output'] != False:
-				chunked_output = ChunkedOutputNode(features, config['chunked_output'])
+		if 'chunked_output' in xmds_config:
+			if xmds_config['chunked_output'] != False:
+				chunked_output = ChunkedOutputNode(features, xmds_config['chunked_output'])
 				features.add_child(chunked_output)
-		if 'diagnostics' in config:
-			if config['diagnostics'] == True:
+		if 'diagnostics' in xmds_config:
+			if xmds_config['diagnostics'] == True:
 				diagnostics = DiagnosticsNode(features)
 				features.add_child(diagnostics)
-		if 'error_check' in config:
-			if config['error_check'] == True:
+		if 'error_check' in xmds_config:
+			if xmds_config['error_check'] == True:
 				error_check = ErrorCheckNode(features)
 				features.add_child(error_check)
-		if 'halt_non_finite' in config:
-			if config['halt_non_finite'] == True:
+		if 'halt_non_finite' in xmds_config:
+			if xmds_config['halt_non_finite'] == True:
 				halt_non_finite = HaltNonFiniteNode(features)
 				features.add_child(halt_non_finite)
-		if 'fftw' in config:
-			if config['fftw'] != False:
-				if type(config['fftw']) is str:
-					fftw = FFTWNode(features, config['fftw'])
+		if 'fftw' in xmds_config:
+			if xmds_config['fftw'] != False:
+				if type(xmds_config['fftw']) is str:
+					fftw = FFTWNode(features, xmds_config['fftw'])
 				else: # tuple
-					fftw = FFTWNode(features, config['fftw'][0], config['fftw'][1])
+					fftw = FFTWNode(features, xmds_config['fftw'][0], xmds_config['fftw'][1])
 				features.add_child(fftw)
 		if self._globals:
 			g = GlobalsNode(features)
@@ -141,47 +164,48 @@ class Project(object):
 				g_str += '\n'
 			g.text = g_str
 			features.add_child(g)
-		if 'openmp' in config:
-			if config['openmp'] != False:
-				if config['openmp'] == True:
+		if 'openmp' in xmds_config:
+			if xmds_config['openmp'] != False:
+				if xmds_config['openmp'] == True:
 					openmp = OpenMPNode(features)
 				else: # string
-					openmp = OpenMPNode(features, config['openmp'])
+					openmp = OpenMPNode(features, xmds_config['openmp'])
 				features.add_child(openmp)
-		if 'precision' in config:
-			if config['precision'] != False:
-				precision = PrecisionNode(features, config['precision'])
+		if 'precision' in xmds_config:
+			if xmds_config['precision'] != False:
+				precision = PrecisionNode(features, xmds_config['precision'])
 				features.add_child(precision)
-		if 'validation' in config:
-			if config['validation'] != False:
-				validation = ValidationNode(features, config['validation'])
+		if 'validation' in xmds_config:
+			if xmds_config['validation'] != False:
+				validation = ValidationNode(features, xmds_config['validation'])
 				features.add_child(validation)
 		
 		# driver
-		if 'driver' in config:
-			if config['driver'] != False:
-				if type(config['driver']) is str:
-					driver = DriverNode(self._node, config['driver'])
+		if 'driver' in xmds_config:
+			if xmds_config['driver'] != False:
+				if type(xmds_config['driver']) is str:
+					driver = DriverNode(self._node, xmds_config['driver'])
 				else: # tuple
-					driver = DriverNode(self._node, config['driver'][0], config['driver'][1])
+					driver = DriverNode(self._node, xmds_config['driver'][0], xmds_config['driver'][1])
 				self._node.add_child(driver)
 
 		# geometry
 		geometry = GeometryNode(self._node)
 		self._node.add_child(geometry)
-		if 'prop_dim' in config:
-			propagation_dimension = PropagationDimensionNode(geometry, config['prop_dim'])
+		if 'prop_dim' in xmds_config:
+			propagation_dimension = PropagationDimensionNode(geometry, xmds_config['prop_dim'])
 			geometry.add_child(propagation_dimension)
-		if 'trans_dim' in config:
+		if 'trans_dim' in xmds_config:
 			transverse_dimensions = TransverseDimensionsNode(geometry)
 			geometry.add_child(transverse_dimensions)
 			# only consider lattice and domain for now
-			for dim in config['trans_dim']:
+			for dim in xmds_config['trans_dim']:
 				d = DimensionNode(transverse_dimensions, dim['name'], dim['lattice'], dim['domain'])
 				transverse_dimensions.add_child(d)
 		
 		# neural network setup
 		if 'ml_settings' in config:
+			print('Initialising network...')
 			self.network = NeuralNetwork(parameters=self._parameters, settings=config['ml_settings'])
 			self.network.construct_network()
 			self.network.generate_training_input()
@@ -198,6 +222,7 @@ class Project(object):
 		Args:
 			filename (str): The file name
 		"""
+		print('Compiling XMDS2...')
 		chain = xmds2[filename + '.xmds']
 		chain()
 
@@ -214,24 +239,30 @@ class Project(object):
 		for param in param_vals:
 			chain('--' + param[0] + '=' + str(param[1]))
 	
-	def objective_function(self, x, cost_fn):
+	def cost_fn(self, cost_fn):
+		# sets user-defined post-processing cost function
+		self.cost_fn = cost_fn
+	
+	def _objective_function(self, x):
 		# run sim
 		param_vals = []
 		for i in range(len(x)):
-			param = [param for param in self._parameters if param.index == i]
+			param = [param for param in self._parameters if param.index == i][0]
 			param_vals.append((param.name, x[i]))
 		self.run(param_vals)
 
 		# open h5 file
 		f = h5py.File(self.sim_name + '.h5', 'r')
 		dataset = f['1']
-		output = dataset[self.cost_name]
-		return cost_fn(output)
-		
-	def optimise(self, cost_fn): # requires user-defined cost function for post-processing output variable
+		output = dataset[self.cost_name][...]
+		return self.cost_fn(output)
+	
+	@timer
+	def optimise(self):
 		self.compile(self.filename)
-		self.network.generate_training_output(self.objective_function, cost_fn)
+		self.network.generate_training_output(self._objective_function)
 		self.network.train()
+		self.network.plot_history()
 		self.network.find_optimal_params()
 
 	def optimise2(self, filename: str, sim_name: str, fig_name: str):
@@ -243,8 +274,6 @@ class Project(object):
 			sim_name (str): The name of the executable
 			fig_name (str): The name the main output figure to be plotted
 		"""
-		# chain1 = xmds2[filename + '.xmds']
-		# chain1()
 		self.compile(filename)
 
 		# k_min = 1.0

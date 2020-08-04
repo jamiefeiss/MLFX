@@ -1,5 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # mute warnings, etc.
+import time
 
 import tensorflow as tf
 import numpy as np
@@ -7,40 +8,38 @@ import matplotlib.pyplot as plt
 
 from .variables import *
 
+def timer(func):
+    """A timer decorator"""
+    def function_timer(*args, **kwargs):
+        """A nested function for timing other functions"""
+        start = time.time()
+        value = func(*args, **kwargs)
+        end = time.time()
+        runtime = end - start
+        msg = "The runtime for {func} took {time} seconds to complete"
+        print(msg.format(func=func.__name__, time=round(runtime, 4)))
+        return value
+    return function_timer
+
 class NeuralNetwork(object):
     """
     Class for the neural network
-    """
 
-    """
-    Attributes:
-        model
-        optimisers
-        settings
-        training data
+    Args:
         parameters
-        history
-        unique simulation ID
-    """
+        settings
 
-    """
-    Methods:
-        generate random training data points
-        generate training output
-        normalise data point
-        normalise list
-        un-normalise data point
-        un-normalise list
-        save training data to file
-        checkpoint/save model
-        load model
-        train
-        get optimal parameters
-        refine
-        add training point
-        train from one data point
-        plot history
-        plot network structure
+    Attributes:
+        parameters
+        settings
+        model
+        train_optimiser
+        opt_optimiser
+        training_input
+        training_input_norm
+        training_output
+        training_output_norm
+        history
     """
 
     def __init__(self, parameters, settings):
@@ -50,78 +49,128 @@ class NeuralNetwork(object):
         self.train_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['train_learning_rate'] or 0.01)
         self.opt_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['opt_learning_rate'] or 0.01)
 
+    def _input_data_row_string(self, row):
+        string = ''
+        for i, element in enumerate(row):
+            if i == len(row) - 1: # end of row
+                string += str(row[i]) + '\n'
+            else:
+                string += str(row[i]) + ','
+        return string
+
     def generate_training_input(self):
         inputs = []
         inputs_normalised = []
         for i in range(len(self.parameters)):
-            param = [param for param in self.parameters if param.index == i]
+            param = [param for param in self.parameters if param.index == i][0] # enforce parameter order by index
             param_list = np.random.uniform(low = param.min, high = param.max, size = self.settings['training_size']) # random sampling
             inputs.append(param_list)
             inputs_normalised.append(self._normalise_array(param_list, param.min, param.max))
 
         self.training_input = np.column_stack(tuple([input for input in inputs]))
-        self.training_input_norm = np.column_stack(tuple([input for input in inputs_normalised]))    
+        self.training_input_norm = np.column_stack(tuple([input for input in inputs_normalised]))
 
+        # write training input data to file
+        with open('input.txt', 'w') as f:
+            for row in self.training_input:
+                f.write(self._input_data_row_string(row))
+
+    @timer
     def generate_training_output(self, objective_fn):
-        y_list = [objective_fn(x) for x in self.training_input] # calculate output from objective function
+        print('Generating training data...')
+        self.objective_fn = objective_fn
+        y_list = []
+        for x in self.training_input:
+            y = self.objective_fn(x) # run xmds
+
+            # append to output file
+            with open('output.txt', 'a') as f:
+                f.write(str(y) + '\n')
+            y_list.append(y)
+        
         self.training_output = np.asarray(y_list, dtype = np.float64).reshape(self.settings['training_size'], 1)
         self.training_output_norm = np.asarray(self._normalise_array(y_list, min(y_list),max(y_list)), dtype = np.float64).reshape(self.settings['training_size'], 1)
     
     def construct_network(self):
-        for i in range(len(self.settings['neurons'])):
+        # add neuron layers
+        for i, layer_count in enumerate(self.settings['neurons']):
             if i == 0:
-                self.model.add(tf.keras.layers.Dense(self.settings['neurons'][i], input_shape=[len(self.parameters)], activation='sigmoid')) # first layer
+                self.model.add(tf.keras.layers.Dense(layer_count, input_shape=[len(self.parameters)], activation='sigmoid')) # first layer
             else:
-                self.model.add(tf.keras.layers.Dense(self.settings['neurons'][i], activation='sigmoid'))
+                self.model.add(tf.keras.layers.Dense(layer_count, activation='sigmoid'))
         self.model.add(tf.keras.layers.Dense(1)) # output layer
+        
         self.model.compile(optimizer=self.train_optimiser, loss='mse')
 
+    @timer
     def train(self):
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.settings['early_stop_patience'], min_delta=self.settings['early_stop_delta'])
-        self.history = self.model.fit(self.training_input_norm, self.training_output_norm,
-                                epochs=self.settings['train_epochs'], validation_split = self.settings['validation_split'],
-                                callbacks=[early_stop]
-                            )
+        print('Training network...')
+        if self.settings['early_stop']:
+            early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.settings['early_stop_patience'], min_delta=self.settings['early_stop_delta'])
+            self.history = self.model.fit(self.training_input_norm, self.training_output_norm,
+                                    epochs=self.settings['train_epochs'], validation_split = self.settings['validation_split'],
+                                    callbacks=[early_stop]
+                                )
+        else:
+            self.history = self.model.fit(self.training_input_norm, self.training_output_norm,
+                                    epochs=self.settings['train_epochs'], validation_split = self.settings['validation_split']
+                                )
+        # save model
+        self.model.save('saved_model')
 
-    def save_training_data(self, filename):
-        pass
-    
-    def cost(self, y_norm, cost_fn):
-        y_min = min(self.training_output)
-        y_max = max(self.training_output)
-        y = self._inverse_normalise(y_norm, y_min, y_max)
-        y_cost = cost_fn(y)
-        return self._normalise(y_cost, y_min, y_max))
+    def _write_optimal_to_file(self, optimal):
+        optimal_list = []
+        for i, input in enumerate(optimal):
+            optimal_list.append(self._inverse_normalise(input, self.parameters[i].min, self.parameters[i].max))
 
+        with open('optimal.txt', 'a') as f:
+            f.write(self._input_data_row_string(optimal_list))
+
+    @timer
     def find_optimal_params(self):
+        print('Optimising...')
         default_param_values_norm = [] # normalised default parameters
         for param in self.parameters:
             default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
         inputs_default = tf.constant(default_param_values_norm)
+        # inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32, constraint=tf.keras.constraints.MinMaxNorm())
         inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
+
+        # save to file
+        self._write_optimal_to_file(inputs_opt.numpy())
 
         for i in range(self.settings['opt_epochs']):
             with tf.GradientTape() as tape:
-                tape.watch(inputs_opt) 
-                C = self.model(inputs_opt)[0]
+                tape.watch(inputs_opt)
+                C = self.predict(inputs_opt)
             g = tape.gradient(C, [inputs_opt])
+            # print('g: {}'.format(g[0].numpy()))
             self.opt_optimiser.apply_gradients(zip(g, [inputs_opt]))
-        
-        self.optimal_parameters = inputs_opt
 
-    def _normalise(x, min, max):
+            # save to file
+            self._write_optimal_to_file(inputs_opt.numpy())
+        
+        self.optimal_parameters = inputs_opt.numpy()
+    
+    def _inverse_normalise_parameter_row(self, x_norm):
+        x_list = []
+        for i, param in enumerate(x_norm):
+            x_list.append(self._inverse_normalise(param, self.parameters[i].min, self.parameters[i].min))
+        return np.asarray(x_list, dtype = np.float64).reshape(len(self.parameters), 1)
+
+    def _normalise(self, x, min, max):
         return (x - min) / (max - min)
     
-    def _normalise_array(x_list, min, max):
-        return [normalise(x, min, max) for x in x_list]
+    def _normalise_array(self, x_list, min, max):
+        return [self._normalise(x, min, max) for x in x_list]
     
-    def _inverse_normalise(x_norm, min, max):
+    def _inverse_normalise(self, x_norm, min, max):
         return x_norm * (max - min) + min
     
-    def _inverse_normalise_array(x_norm_list, min, max):
-        return [inverse_normalise(x_norm, min, max) for x_norm in x_norm_list]
+    def _inverse_normalise_array(self, x_norm_list, min, max):
+        return [self._inverse_normalise(x_norm, min, max) for x_norm in x_norm_list]
     
-    def plot_history(self, filename):
+    def plot_history(self):
         loss = self.history.history['loss']
         val_loss = self.history.history['val_loss']
         epochs = np.arange(1, len(loss) + 1)
@@ -134,10 +183,12 @@ class NeuralNetwork(object):
         ax.set_ylabel('Loss (MSE)')
         ax.set_ylim([0, None])
         ax.legend()
-        fig.savefig(filename + '.png')
+        fig.savefig('history.png')
 
-    def plot_network(self, filename):
+    def plot_network(self):
         pass
     
     def predict(self, x):
-        return self.model(x)[0]
+        # print('x: {}'.format(x.numpy()))
+        y = self.model(x)[0]
+        return y
