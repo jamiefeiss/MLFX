@@ -236,8 +236,11 @@ class Project(object):
 		"""
 		# param_vals tuple (name, value)
 		chain = local['./' + self.sim_name]
+		arg_list = []
 		for param in param_vals:
-			chain('--' + param[0] + '=' + str(param[1]))
+			arg_str = '--' + param[0] + '=' + str(param[1])
+			arg_list.append(arg_str)
+		chain(*arg_list)
 	
 	def cost_fn(self, cost_fn):
 		# sets user-defined post-processing cost function
@@ -255,6 +258,7 @@ class Project(object):
 		f = h5py.File(self.sim_name + '.h5', 'r')
 		dataset = f['1']
 		output = dataset[self.cost_name][...]
+		f.close()
 		return self.cost_fn(output)
 	
 	@timer
@@ -263,7 +267,7 @@ class Project(object):
 		self.network.generate_training_output(self._objective_function)
 		self.network.train()
 		self.network.plot_history()
-		self.network.find_optimal_params()
+		self.network.find_optimal_params(self._objective_function)
 
 	def optimise2(self, filename: str, sim_name: str, fig_name: str):
 		"""
