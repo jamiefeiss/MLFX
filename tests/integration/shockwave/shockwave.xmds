@@ -1,0 +1,152 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<simulation xmds-version="2">
+	<name>shockwave</name>
+	<author>Jamie Feiss</author>
+	<description>
+		Shockwave interferometer in 1D
+	</description>
+
+	<features>
+		<auto_vectorise/>
+		<benchmark/>
+		<fftw plan="patient"/>
+		<globals>
+			<![CDATA[
+                const real R = 50.0; // ring radius
+                const real Omega = 0.125; // rotation rate
+                const real L = 2.0 * M_PI * R; // length of line
+
+				const real g = 1.0; // non-linearity constant
+
+				const real A = 1.0; // gaussian beam amplitude
+				const real w = 0.2; // gaussian beam width
+
+				const real T_imaj = 1e-1; // imaginary time duration
+                const real T_fill = 200.0; // time to fill ring
+				const real T_laser = 1.0; // time for gaussian laser
+				const real T_evo = 5.0; // evolution time for shockwaves
+			]]>		
+		</globals>
+		<validation kind="run-time"/>
+	</features>
+
+	<geometry>
+		<propagation_dimension>t</propagation_dimension>
+		<transverse_dimensions>
+			<dimension name="x" lattice="1000" domain="(-L/2, L/2)"/>
+		</transverse_dimensions>
+	</geometry>
+
+	<!-- Wavefunction -->
+	<vector name="wavefunction" type="complex" dimensions="x">
+		<components>psi</components>
+		<initialisation>
+			<![CDATA[				
+				psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2.0) / 2.0);
+			]]>
+		</initialisation>
+	</vector>
+
+	<!-- Harmonic potential -->
+	<vector name="potential" type="real" dimensions="x">
+		<components>V_h</components>
+		<initialisation>
+			<![CDATA[
+				V_h = pow(x, 2.0) / 2.0;
+			]]>		
+		</initialisation>
+	</vector>
+
+	<!-- Gaussian beam -->
+	<vector name="gaussian" type="real" dimensions="x">
+		<components>V_g</components>
+		<initialisation>
+			<![CDATA[
+				V_g = A * exp(-pow(x, 2.0) / pow(w, 2.0));
+			]]>		
+		</initialisation>
+	</vector>
+
+	<sequence>
+		<!-- Imaginary time -->
+		<integrate algorithm="RK4" interval="T_imaj" steps="10000">
+			<samples>0</samples>
+			<operators>
+				<operator kind="ip" type="real" constant="yes">
+					<![CDATA[
+						Ltt = -pow(kx, 2.0) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - (V_h + g * mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+				<dependencies>potential</dependencies>
+			</operators>
+		</integrate>
+
+		<!-- GPE to fill ring -->
+		<integrate algorithm="ARK45" interval="T_fill" tolerance="1e-8">
+			<samples>1000</samples>
+			<operators>
+				<operator kind="ip" type="imaginary" constant="yes">
+					<![CDATA[
+						Ltt = -i * pow(kx, 2.0) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - i * (g * mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+			</operators>
+		</integrate>
+
+		<!-- GPE for laser -->
+		<!-- <integrate algorithm="ARK45" interval="T_laser" tolerance="1e-8">
+			<samples>100</samples>
+			<operators>
+				<operator kind="ip" type="imaginary" constant="yes">
+					<![CDATA[
+						Ltt = -i * pow(kx, 2.0) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - i * (V_g + g * mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+				<dependencies>gaussian</dependencies>
+			</operators>
+		</integrate> -->
+
+		<!-- GPE for shockwaves -->
+		<!-- <integrate algorithm="ARK45" interval="T_evo" tolerance="1e-8">
+			<samples>100</samples>
+			<operators>
+				<operator kind="ip" type="imaginary" constant="yes">
+					<![CDATA[
+						Ltt = -i * pow(kx, 2.0) / 2.0;
+					]]>
+					<operator_names>Ltt</operator_names>
+				</operator>
+					<![CDATA[
+						dpsi_dt = Ltt[psi] - i * (g * mod2(psi)) * psi;
+					]]>
+				<integration_vectors>wavefunction</integration_vectors>
+			</operators>
+		</integrate> -->
+	</sequence>
+
+	<output>
+		<!-- density -->
+		<sampling_group basis="x" initial_sample="yes">
+            <moments>density</moments>
+			<dependencies>wavefunction</dependencies>
+			<![CDATA[
+                density = mod2(psi);
+			]]>
+		</sampling_group>
+	</output>
+</simulation>
