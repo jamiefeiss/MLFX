@@ -46,8 +46,16 @@ class NeuralNetwork(object):
         self.parameters = parameters
         self.settings = settings
         self.model = tf.keras.Sequential()
-        self.train_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['train_learning_rate'] or 0.01)
-        self.opt_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['opt_learning_rate'] or 0.01)
+        if settings['train_learning_decay']:
+            train_learning_decay = tf.keras.optimizers.schedules.InverseTimeDecay(initial_learning_rate=settings['train_learning_rate'], decay_steps=1.0, decay_rate=0.5)
+            self.train_optimiser = tf.keras.optimizers.Adam(learning_rate=train_learning_decay)
+        else :
+            self.train_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['train_learning_rate'])
+        if settings['opt_learning_decay']:
+            opt_learning_decay = tf.keras.optimizers.schedules.InverseTimeDecay(initial_learning_rate=settings['opt_learning_rate'], decay_steps=1.0, decay_rate=0.5)
+            self.opt_optimiser = tf.keras.optimizers.Adam(learning_rate=opt_learning_decay)
+        else :
+            self.opt_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['opt_learning_rate'])
 
     def _input_data_row_string(self, row):
         string = ''
@@ -63,10 +71,13 @@ class NeuralNetwork(object):
         inputs_normalised = []
         for i in range(len(self.parameters)):
             param = [param for param in self.parameters if param.index == i][0] # enforce parameter order by index
-            param_list = np.random.uniform(low = param.min, high = param.max, size = self.settings['training_size']) # random sampling
+            # param_list = np.random.uniform(low = param.min, high = param.max, size = self.settings['training_size']) # random sampling
             # param_list = np.linspace(start = param.min, stop = param.max, num = self.settings['training_size']) # evenly spaced sampling
+            param_list = np.random.normal(loc = param.value, scale = 0.3, size = self.settings['training_size'])
             inputs.append(param_list)
             inputs_normalised.append(self._normalise_array(param_list, param.min, param.max))
+
+            self.plot_param_hist(param, param_list)
 
         self.training_input = np.column_stack(tuple([input for input in inputs]))
         self.training_input_norm = np.column_stack(tuple([input for input in inputs_normalised]))
@@ -91,7 +102,9 @@ class NeuralNetwork(object):
         
         self.training_output = np.asarray(y_list, dtype = np.float64).reshape(self.settings['training_size'], 1)
         self.training_output_norm = np.asarray(self._normalise_array(y_list, min(y_list),max(y_list)), dtype = np.float64).reshape(self.settings['training_size'], 1)
-    
+
+        self.plot_param_scatter(self.training_input, self.training_output)
+
     def construct_network(self):
         # add neuron layers
         for i, layer_count in enumerate(self.settings['neurons']):
@@ -120,24 +133,70 @@ class NeuralNetwork(object):
         # save model
         # self.model.save('saved_model')
 
-    # def _write_optimal_to_file(self, optimal):
-    #     optimal_list = []
-    #     for i, input in enumerate(optimal):
-    #         optimal_list.append(self._inverse_normalise(input, self.parameters[i].min, self.parameters[i].max))
+    def _write_optimal_to_file(self, optimal):
+        optimal_list = []
+        for i, input in enumerate(optimal):
+            optimal_list.append(self._inverse_normalise(input, self.parameters[i].min, self.parameters[i].max))
 
-    #     with open('optimal.txt', 'a') as f:
-    #         f.write(self._input_data_row_string(optimal_list))
+        with open('optimal.txt', 'a') as f:
+            f.write(self._input_data_row_string(optimal_list))
 
     @timer
-    def find_optimal_params(self, objective_fn):
+    def find_optimal_params3(self, objective_fn):
+        """Runs an optimiser around each optimal guess"""
         print('Optimising...')
+        # initialise to default parameter values
+        default_param_values_norm = []
+        for param in self.parameters:
+            default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
+        inputs_default = tf.constant(default_param_values_norm)
+        inputs_refine = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
+        refine_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['refine_learning_rate'])
 
-        # default_param_values_norm = [] # normalised default parameters
-        # for param in self.parameters:
-        #     default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
-        # inputs_default = tf.constant(default_param_values_norm)
-        # # inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32, constraint=tf.keras.constraints.MinMaxNorm()) # constraint
-        # inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
+        def opt_fn(var):
+            # Can't find connection between variable and cost to calculate gradient
+            # TODO try tf.nn.softmax... normalisation throughout instead of minmax -> (https://github.com/tensorflow/tensorflow/issues/1511)
+            x_unnorm = self._inverse_normalise_parameter_row(var.numpy())
+            print('x={}'.format(x_unnorm))
+            y_unnorm = objective_fn(x_unnorm[0]) # run xmds - passing array, need [0] to be a float
+            print('y={}'.format(y_unnorm))
+            C = self._normalise(y_unnorm, self.training_output.min(), self.training_output.max())
+            return tf.constant([C]) # cost needs to be a tensor
+
+        # refine
+        for i in range(self.settings['refine_epochs']):
+            inputs_opt = tf.Variable(inputs_refine, trainable=True, dtype = tf.float32)
+            opt_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['opt_learning_rate'])
+
+            # optimise
+            for i in range(self.settings['opt_epochs']):
+                with tf.GradientTape() as tape_opt:
+                    tape_opt.watch(inputs_opt)
+                    C_opt = self.predict(inputs_opt)
+                    print(C_opt)
+                    print(inputs_opt)
+                g_opt = tape_opt.gradient(C_opt, [inputs_opt])
+                opt_optimiser.apply_gradients(zip(g_opt, [inputs_opt]))
+            
+            inputs_refine.assign(inputs_opt)
+
+            with tf.GradientTape() as tape_refine:
+                tape_refine.watch(inputs_refine)
+                C_refine = opt_fn(inputs_refine)
+                print(C_refine)
+                print(inputs_refine)
+            g_refine = tape_refine.gradient(C_refine, [inputs_refine])
+            refine_optimiser.apply_gradients(zip(g_refine, [inputs_refine]))
+
+            y_output = np.asarray(C, dtype = np.float32).reshape(1, 1)
+
+            self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.005), loss='mse')
+            self.model.fit(x_norm, y_output, epochs=10, verbose=0)
+
+    @timer
+    def find_optimal_params2(self, objective_fn):
+        """Trains the model after each optimisation run"""
+        print('Optimising...')
 
         # # save to file
         # self._write_optimal_to_file(inputs_opt.numpy()) # default initial values
@@ -148,7 +207,6 @@ class NeuralNetwork(object):
             for param in self.parameters:
                 default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
             inputs_default = tf.constant(default_param_values_norm)
-            # inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32, constraint=tf.keras.constraints.MinMaxNorm()) # constraint
             inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
 
             opt_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['opt_learning_rate'])
@@ -166,12 +224,9 @@ class NeuralNetwork(object):
                 # self._write_optimal_to_file(inputs_opt.numpy())
             
             self.optimal_parameters = inputs_opt.numpy()
-            # print('opt_params={}'.format(self.optimal_parameters))
 
             x_unnorm = self._inverse_normalise_parameter_row(self.optimal_parameters)
-            print('x={}'.format(x_unnorm))
             y_unnorm = objective_fn(x_unnorm[0]) # run xmds - passing array, need [0] to be a float
-            print('y={}'.format(y_unnorm))
             y_norm = self._normalise(y_unnorm, self.training_output.min(), self.training_output.max())
             y_output = np.asarray(y_norm, dtype = np.float32).reshape(1, 1)
 
@@ -183,7 +238,6 @@ class NeuralNetwork(object):
         for param in self.parameters:
             default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
         inputs_default = tf.constant(default_param_values_norm)
-        # inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32, constraint=tf.keras.constraints.MinMaxNorm()) # constraint
         inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
 
         final_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['opt_learning_rate'])
@@ -202,7 +256,40 @@ class NeuralNetwork(object):
             # self._write_optimal_to_file(inputs_opt.numpy())
         
         self.optimal_parameters = inputs_opt.numpy()
-        # print('opt_params={}'.format(self.optimal_parameters))
+
+        x_unnorm = self._inverse_normalise_parameter_row(self.optimal_parameters)
+        print('x={}'.format(x_unnorm))
+        y_unnorm = objective_fn(x_unnorm[0]) # run xmds - passing array, need [0] to be a float
+        print('y={}'.format(y_unnorm))
+        y_norm = self._normalise(y_unnorm, self.training_output.min(), self.training_output.max())
+        y_output = np.asarray(y_norm, dtype = np.float32).reshape(1, 1)
+
+    @timer
+    def find_optimal_params(self, objective_fn):
+        """Does a single optimisation run over the parameter surface"""
+        print('Optimising...')
+
+        default_param_values_norm = [] # normalised default parameters
+        for param in self.parameters:
+            default_param_values_norm.append(self._normalise(param.value, param.min, param.max))
+        inputs_default = tf.constant(default_param_values_norm)
+        inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
+
+        opt_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['opt_learning_rate'])
+
+        # save to file
+        # self._write_optimal_to_file(inputs_opt.numpy()) # default initial values
+        for i in range(self.settings['opt_epochs']):
+            with tf.GradientTape() as tape:
+                tape.watch(inputs_opt)
+                C = self.predict(inputs_opt)
+            g = tape.gradient(C, [inputs_opt])
+            opt_optimiser.apply_gradients(zip(g, [inputs_opt]))
+
+            # save to file
+            # self._write_optimal_to_file(inputs_opt.numpy())
+        
+        self.optimal_parameters = inputs_opt.numpy()
 
         x_unnorm = self._inverse_normalise_parameter_row(self.optimal_parameters)
         print('x={}'.format(x_unnorm))
@@ -243,6 +330,16 @@ class NeuralNetwork(object):
         ax.set_ylim([0, None])
         ax.legend()
         fig.savefig('history.png')
+    
+    def plot_param_hist(self, param, param_list):
+        fig, ax = plt.subplots()
+        ax.hist(param_list, 10)
+        fig.savefig(param.name + '_input.png')
+    
+    def plot_param_scatter(self, param_list, output_list):
+        fig, ax = plt.subplots()
+        ax.scatter(param_list, output_list)
+        fig.savefig('training.png')
 
     def plot_network(self):
         pass

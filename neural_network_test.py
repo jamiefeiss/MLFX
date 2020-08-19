@@ -22,15 +22,18 @@ config = {
     },
     'ml_settings': {
         'train_learning_rate': 0.01,
-        'opt_learning_rate': 0.005,
-        'training_size': 50,
+        'train_learning_decay': True,
+        'opt_learning_rate': 0.001,
+        'opt_learning_decay': True,
+        # 'refine_learning_rate': 0.01,
+        'training_size': 20,
         'neurons': (16, 8),
         'train_epochs': 100,
-        'opt_epochs': 50,
-        'refine_epochs': 20,
+        'opt_epochs': 100,
+        # 'refine_epochs': 20,
         'early_stop': False,
         'early_stop_patience': 10,
-        'early_stop_delta': 0.1,
+        'early_stop_delta': 0,
         'validation_split': 0.2
     }
 }
