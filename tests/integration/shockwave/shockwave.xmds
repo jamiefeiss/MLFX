@@ -12,19 +12,20 @@
 		<fftw plan="patient"/>
 		<globals>
 			<![CDATA[
-                const real R = 50.0; // ring radius
-                const real Omega = 0.125; // rotation rate
+                const real R = 5.0; // ring radius
+                const real Omega = 0.0; // rotation rate
                 const real L = 2.0 * M_PI * R; // length of line
 
+				const real N = 10; // number of particles
 				const real g = 1.0; // non-linearity constant
+				const real A_psi = 1e-0; // state amplitude
+				const real w_psi = 4.0; // state width
 
-				const real A = 1.0; // gaussian beam amplitude
-				const real w = 0.2; // gaussian beam width
+				const real A = 5e-1; // gaussian beam amplitude
+				const real w = 5.0; // gaussian beam width
 
-				const real T_imaj = 1e-1; // imaginary time duration
-                const real T_fill = 200.0; // time to fill ring
-				const real T_laser = 1.0; // time for gaussian laser
-				const real T_evo = 5.0; // evolution time for shockwaves
+				const real T_imag = 1.0; // imaginary time duration
+				const real T_evo = 12.0; // evolution time for shockwaves
 			]]>		
 		</globals>
 		<validation kind="run-time"/>
@@ -33,101 +34,84 @@
 	<geometry>
 		<propagation_dimension>t</propagation_dimension>
 		<transverse_dimensions>
-			<dimension name="x" lattice="1000" domain="(-L/2, L/2)"/>
+			<dimension name="x" lattice="500" domain="(-L/2, L/2)"/>
 		</transverse_dimensions>
 	</geometry>
 
-	<!-- Wavefunction -->
+	<!-- Initial wavefunction -->
 	<vector name="wavefunction" type="complex" dimensions="x">
 		<components>psi</components>
 		<initialisation>
 			<![CDATA[				
-				psi = (1.0 / pow(M_PI, 0.25)) * exp(-pow(x, 2.0) / 2.0);
+				psi = A_psi * exp(-pow(x, 2.0) / (2 * pow(w_psi, 2.0)));
 			]]>
 		</initialisation>
 	</vector>
-
-	<!-- Harmonic potential -->
-	<vector name="potential" type="real" dimensions="x">
-		<components>V_h</components>
-		<initialisation>
+	
+	<computed_vector name="normalisation" dimensions="" type="real">
+		<components>norm</components>
+		<evaluation>
+			<dependencies basis="x">wavefunction</dependencies>
 			<![CDATA[
-				V_h = pow(x, 2.0) / 2.0;
-			]]>		
-		</initialisation>
-	</vector>
+				norm = mod2(psi); // calculate wavefunction normalisation
+			]]>
+		</evaluation>
+	</computed_vector>
 
-	<!-- Gaussian beam -->
-	<vector name="gaussian" type="real" dimensions="x">
+	<!-- Gaussian laser potential -->
+	<computed_vector name="gaussian" type="real" dimensions="x">
 		<components>V_g</components>
-		<initialisation>
+		<evaluation>
 			<![CDATA[
-				V_g = A * exp(-pow(x, 2.0) / pow(w, 2.0));
+				// V_g = -A * exp(-pow(x, 2.0) / (2 * pow(w, 2.0)));
+				V_g = A * (1 - exp(-pow(x, 2.0) / (2 * pow(w, 2.0))));
 			]]>		
-		</initialisation>
-	</vector>
+		</evaluation>
+	</computed_vector>
+
+	<!-- Normalise wavefunction -->
+	<filter>
+        <dependencies>normalisation wavefunction</dependencies>
+		<![CDATA[
+			psi *= sqrt(N/norm);
+		]]>
+    </filter>
 
 	<sequence>
 		<!-- Imaginary time -->
-		<integrate algorithm="RK4" interval="T_imaj" steps="10000">
-			<samples>0</samples>
+		<integrate algorithm="RK4" interval="T_imag" steps="1000">
+			<samples>1000 0 0</samples>
 			<operators>
 				<operator kind="ip" type="real" constant="yes">
 					<![CDATA[
-						Ltt = -pow(kx, 2.0) / 2.0;
+						Ltt = -pow(kx, 2.0) / 2.0 + Omega * kx;
 					]]>
 					<operator_names>Ltt</operator_names>
 				</operator>
 					<![CDATA[
-						dpsi_dt = Ltt[psi] - (V_h + g * mod2(psi)) * psi;
-					]]>
-				<integration_vectors>wavefunction</integration_vectors>
-				<dependencies>potential</dependencies>
-			</operators>
-		</integrate>
-
-		<!-- GPE to fill ring -->
-		<integrate algorithm="ARK45" interval="T_fill" tolerance="1e-8">
-			<samples>1000</samples>
-			<operators>
-				<operator kind="ip" type="imaginary" constant="yes">
-					<![CDATA[
-						Ltt = -i * pow(kx, 2.0) / 2.0;
-					]]>
-					<operator_names>Ltt</operator_names>
-				</operator>
-					<![CDATA[
-						dpsi_dt = Ltt[psi] - i * (g * mod2(psi)) * psi;
-					]]>
-				<integration_vectors>wavefunction</integration_vectors>
-			</operators>
-		</integrate>
-
-		<!-- GPE for laser -->
-		<!-- <integrate algorithm="ARK45" interval="T_laser" tolerance="1e-8">
-			<samples>100</samples>
-			<operators>
-				<operator kind="ip" type="imaginary" constant="yes">
-					<![CDATA[
-						Ltt = -i * pow(kx, 2.0) / 2.0;
-					]]>
-					<operator_names>Ltt</operator_names>
-				</operator>
-					<![CDATA[
-						dpsi_dt = Ltt[psi] - i * (V_g + g * mod2(psi)) * psi;
+						dpsi_dt = Ltt[psi] - (V_g + g * mod2(psi)) * psi;
 					]]>
 				<integration_vectors>wavefunction</integration_vectors>
 				<dependencies>gaussian</dependencies>
 			</operators>
-		</integrate> -->
+			<filters where="step end">
+				<!-- Normalise wavefunction -->
+				<filter>
+					<dependencies>normalisation wavefunction</dependencies>
+					<![CDATA[
+						psi *= sqrt(N/norm);
+					]]>
+				</filter>
+			</filters>
+		</integrate>
 
 		<!-- GPE for shockwaves -->
-		<!-- <integrate algorithm="ARK45" interval="T_evo" tolerance="1e-8">
-			<samples>100</samples>
+		<integrate algorithm="ARK45" interval="T_evo" tolerance="1e-8">
+			<samples>1000 0 0</samples>
 			<operators>
 				<operator kind="ip" type="imaginary" constant="yes">
 					<![CDATA[
-						Ltt = -i * pow(kx, 2.0) / 2.0;
+						Ltt = -i * pow(kx, 2.0) / 2.0 + i * Omega * kx;
 					]]>
 					<operator_names>Ltt</operator_names>
 				</operator>
@@ -136,7 +120,7 @@
 					]]>
 				<integration_vectors>wavefunction</integration_vectors>
 			</operators>
-		</integrate> -->
+		</integrate>
 	</sequence>
 
 	<output>
@@ -146,6 +130,37 @@
 			<dependencies>wavefunction</dependencies>
 			<![CDATA[
                 density = mod2(psi);
+			]]>
+		</sampling_group>
+
+		<!-- constants -->
+		<sampling_group basis="" initial_sample="yes">
+            <moments>radius omega length non_lin amplitude width amplitude_psi width_psi t_imag t_evo</moments>
+			<dependencies></dependencies>
+			<![CDATA[
+                radius = R; // ring radius
+                omega = Omega; // rotation rate
+                length = L; // length of line
+
+				non_lin = g; // non-linearity constant
+
+				amplitude_psi = A_psi; // gaussian beam amplitude
+				width_psi = w_psi; // gaussian beam width
+
+				amplitude = A; // gaussian beam amplitude
+				width = w; // gaussian beam width
+
+				t_evo = T_evo; // evolution time for shockwaves
+			]]>
+		</sampling_group>
+
+		<!-- functions -->
+		<sampling_group basis="x" initial_sample="yes">
+            <moments>psi_init laser</moments>
+			<dependencies>wavefunction gaussian</dependencies>
+			<![CDATA[
+                psi_init = psi.Re();
+				laser = V_g;
 			]]>
 		</sampling_group>
 	</output>
