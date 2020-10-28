@@ -23,9 +23,13 @@ class SamplingGroupBlock(Block):
         super().__init__(parent)
         self.basis = basis
         self.initial_sample = initial_sample
+        self.comp_vecs = []
 
         self._head = SamplingGroupNode(self._parent)
         self._parent.add_child(self._head)
+    
+    def add_comp_vec(self, comp_vec):
+        self.comp_vecs.append(comp_vec)
     
     def generate(self):
         """Generates the sampling group block"""
@@ -41,12 +45,17 @@ class SamplingGroupBlock(Block):
         # comments
         if self.comment_str:
             self._head.comment = self.comment_str
+        
+        if self.comp_vecs:
+            for comp_vec in self.comp_vecs:
+                self._head.add_child(comp_vec)
+                comp_vec.generate()
 
         # components (moments)
         m = MomentsNode(self._head, self.components_str())
         self._head.add_child(m)
 
         # dependencies
-        if self.dependencies:
-            dep = DependenciesNode(self._head, self.dependencies_str())
-            self._head.add_child(dep)
+        # if self.dependencies:
+        dep = DependenciesNode(self._head, self.dependencies_str())
+        self._head.add_child(dep)

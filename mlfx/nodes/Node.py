@@ -60,10 +60,11 @@ class Node(ABC):
             if value is not None:
                 self._element.attrib[key] = value  
 
-        if self._is_cdata:
-            self._element.text = etree.CDATA(self._text)
-        else:
-            self._element.text = self._text
+        if self._text:
+            if self._is_cdata:
+                self._element.text = etree.CDATA(self._text)
+            else:
+                self._element.text = self._text
         
         if self._tail:
             self._element.tail = etree.CDATA(self._tail)

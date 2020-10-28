@@ -33,7 +33,7 @@ class Project(object):
 		self._node = SimulationNode()
 		self._blocks = [] # [Block, ...]
 		self._components = {} # {component: Block, ...}
-		self._globals = [] # [Global, ....]
+		self._globals = [] # [Global, ...]
 		self._parameters = [] # [Parameter, ...]
 		self._no_params = 0
 	
@@ -61,8 +61,12 @@ class Project(object):
 			dependencies = []
 			for eq in block.equations:
 				for comp in self._components.keys():
-					if comp in block.get_terms(block.get_rhs(eq)):
-						dependencies.append(comp)
+					if isinstance(block, FilterBlock):
+						if comp in block.get_terms(eq):
+							dependencies.append(comp)
+					else:
+						if comp in block.get_terms(block.get_rhs(eq)):
+							dependencies.append(comp)
 			if type(block) is IntegrateBlock:
 				# find integration vectors
 				for component in block.components:
@@ -79,6 +83,10 @@ class Project(object):
 		
 		# generate blocks
 		for block in self._blocks:
+			if isinstance(block, FilterBlock) and isinstance(block.filters_parent, FiltersNode):
+				continue
+			elif isinstance(block, ComputedVectorBlock) and isinstance(block._head.parent, SamplingGroupNode):
+				continue
 			block.generate()
 
 		# recursive call to validate & generate down the tree
@@ -226,7 +234,7 @@ class Project(object):
 		chain = xmds2[filename + '.xmds']
 		chain()
 
-	def run(self, param_vals: List[Tuple]):
+	def run(self, param_vals: List[Tuple] = None):
 		"""
 		Runs the XMDS2 file with parameter values
 		
@@ -237,15 +245,31 @@ class Project(object):
 		# param_vals tuple (name, value)
 		chain = local['./' + self.sim_name]
 		arg_list = []
-		for param in param_vals:
-			arg_str = '--' + param[0] + '=' + str(param[1])
-			arg_list.append(arg_str)
+		if param_vals is not None:
+			for param in param_vals:
+				arg_str = '--' + param[0] + '=' + str(param[1])
+				arg_list.append(arg_str)
 		chain(*arg_list)
 	
 	def cost_fn(self, cost_fn):
 		# sets user-defined post-processing cost function
 		self.cost_fn = cost_fn
 	
+	# def _objective_function(self, x):
+	# 	# run sim
+	# 	param_vals = []
+	# 	for i in range(len(x)):
+	# 		param = [param for param in self._parameters if param.index == i][0]
+	# 		param_vals.append((param.name, x[i]))
+	# 	self.run(param_vals)
+
+	# 	# open h5 file
+	# 	f = h5py.File(self.sim_name + '.h5', 'r')
+	# 	dataset = f['1']
+	# 	output = dataset[self.cost_name][...]
+	# 	f.close()
+	# 	return self.cost_fn(output)
+
 	def _objective_function(self, x):
 		# run sim
 		param_vals = []
@@ -256,10 +280,8 @@ class Project(object):
 
 		# open h5 file
 		f = h5py.File(self.sim_name + '.h5', 'r')
-		dataset = f['1']
-		output = dataset[self.cost_name][...]
-		f.close()
-		return self.cost_fn(output)
+		
+		return self.cost_fn(f)
 	
 	@timer
 	def optimise(self):
@@ -478,8 +500,6 @@ class Project(object):
 		comp_vector.add_child(comp)
 		eval = EvaluationNode(comp_vector, evaluation, True)
 		comp_vector.add_child(eval)
-	
-	# ignore filters
 
 	### blocks
 	
@@ -524,7 +544,7 @@ class Project(object):
 		self._add_block(v)
 		return v
 	
-	def comp_vec(self, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None) -> ComputedVectorBlock:
+	def comp_vec(self, parent = None, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None) -> ComputedVectorBlock:
 		"""
 		Adds a computed vector block
 
@@ -533,9 +553,21 @@ class Project(object):
 			dimensions (str): The vector dimensions
 			initial_basis (str): The initial basis
 		"""
-		cv = ComputedVectorBlock(self._node, type, dimensions, initial_basis)
+		if parent is None:
+			parent = self._node
+		cv = ComputedVectorBlock(parent, type, dimensions, initial_basis)
 		self._add_block(cv)
 		return cv
+	
+	def filter(self, parent = None, name: Optional[str] = None, in_integrate = False) -> FilterBlock:
+		"""
+		Adds a filter block
+		"""
+		if parent is None:
+			parent = self._node
+		f = FilterBlock(parent, filter_name=name, in_integrate=in_integrate)
+		self._add_block(f)
+		return f
 	
 	def operator(self, parent: IntegrateNode, kind: str, type: Optional[str] = None, constant: Optional[str] = None) -> OperatorBlock:
 		"""

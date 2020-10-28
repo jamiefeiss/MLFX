@@ -23,7 +23,7 @@ class ComputedVectorBlock(Block):
         components (List[str])): The list of components
         dependencies (List[str])): The list of dependencies
     """
-    def __init__(self, parent: SimulationNode, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
+    def __init__(self, parent, type: Optional[str] = None, dimensions: Optional[str] = None, initial_basis: Optional[str] = None):
         super().__init__(parent)
         self.type = type
         self.dimensions = dimensions

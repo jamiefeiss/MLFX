@@ -4,7 +4,7 @@ p = Project()
 
 config = {
     'xmds_settings': {
-        'name': 'ml_transport',
+        'name': 'ml_transport_unopt',
         'author': 'Jamie Feiss',
         'description': 'Testing machine learning optimisation using the BEC transport problem',
         'auto_vectorise': True,
@@ -20,29 +20,32 @@ config = {
             }
         ]
     },
-    'ml_settings': {
-        'train_learning_rate': 0.01,
-        'train_learning_decay': True,
-        'opt_learning_rate': 0.001,
-        'opt_learning_decay': True,
-        # 'refine_learning_rate': 0.01,
-        'training_size': 20,
-        'neurons': (16, 8),
-        'train_epochs': 100,
-        'opt_epochs': 100,
-        # 'refine_epochs': 20,
-        'early_stop': False,
-        'early_stop_patience': 10,
-        'early_stop_delta': 0,
-        'validation_split': 0.2
-    }
+    # 'ml_settings': {
+    #     'train_learning_rate': 0.01,
+    #     'train_learning_decay': False,
+    #     'opt_learning_rate': 0.01,
+    #     'opt_learning_decay': True,
+    #     # 'refine_learning_rate': 0.01,
+    #     'training_size': 50,
+    #     'neurons': (16, 8),
+    #     'train_epochs': 200,
+    #     'opt_epochs': 200,
+    #     # 'refine_epochs': 20,
+    #     'early_stop': False,
+    #     'early_stop_patience': 10,
+    #     'early_stop_delta': 0,
+    #     'validation_split': 0.2
+    # }
 }
 
+# p.add_global('real', 'N', 10)
+# p.add_global('real', 'g', 1.0)
 p.add_global('real', 'T_i', 1e-1)
 p.add_global('real', 'T', 10.0)
 p.add_global('real', 'x_0', 10.0)
 
-p.parameter('real', 'k', default_value=1.5, min=1.0, max=2.0)
+p.add_global('real', 'k', 1.0)
+# p.parameter('real', 'k', default_value=1.5, min=1.0, max=2.0)
 
 p.config(config)
 
@@ -82,21 +85,21 @@ moving_potential.add_eq('Vt = pow(x - lambda * x_0, 2) / 2.0;')
 
 seq = p.sequence()
 
-imag_time = p.integrate('RK4', 'T_i', '10000', samples = '0')
+imag_time = p.integrate('RK4', 'T_i', '10000', samples = '0 0')
 op1 = p.operator(imag_time._head, 'ip', 'real', 'yes')
 op1.add_eq('Ltt = -pow(kx, 2) / 2.0;')
 imag_time.add_operator(op1)
 imag_time.add_eq('dpsi_dt = Ltt[psi] - (V + mod2(psi)) * psi;')
 imag_time.comment('imaginary time to find ground state')
 
-gpe = p.integrate('ARK45', 'T', tolerance = '1e-8', samples = '0')
+gpe = p.integrate('ARK45', 'T', tolerance = '1e-8', samples = '0 100')
 op2 = p.operator(gpe._head, 'ip', 'imaginary', 'yes')
 op2.add_eq('Ltt = -i * pow(kx, 2) / 2.0;')
 gpe.add_operator(op2)
 gpe.add_eq('dpsi_dt = Ltt[psi] - i * (Vt + mod2(psi)) * psi;')
 gpe.comment('gpe')
 
-imag_time2 = p.integrate('RK4', 'T_i', '10000', samples = '1')
+imag_time2 = p.integrate('RK4', 'T_i', '10000', samples = '1 0')
 op1 = p.operator(imag_time2._head, 'ip', 'real', 'yes')
 op1.add_eq('Ltt = -pow(kx, 2) / 2.0;')
 imag_time2.add_operator(op1)
@@ -109,14 +112,21 @@ s1 = p.sampling_group('x(0)', 'no')
 s1.add_eq('overlap = abs(psi)*abs(psi2);')
 s1.comment('overlap of final state')
 
+s2 = p.sampling_group(basis='x', initial_sample='no')
+s2.add_eq('density = mod2(psi);')
+s2.comment('density')
+
 p.cost_variable('overlap')
 
 # user-defined cost function from xmds output variable
-def cost(y):
-    return -y
+def cost(f):
+    dataset = f['1']
+    overlap = dataset['overlap'][...]
+    f.close()
+    return -overlap
 
 p.cost_fn(cost)
 
 p.generate('xmds_ml_transport')
 
-p.optimise()
+# p.optimise()

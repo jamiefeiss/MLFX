@@ -1,10 +1,8 @@
 import h5py
 import numpy as np
 import math
-import operator
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 
 def principal_n(phase):
     arg = phase
@@ -375,27 +373,9 @@ ax8.set_ylabel('F_Q')
 ax8.set_title('Quantum Fisher information, Omega={}'.format(Omega))
 fig8.savefig('F_Q.png')
 
-# polynomial regression
-x_t = tf[:, np.newaxis]
-polynomial_features= PolynomialFeatures(degree=2)
-x_poly = polynomial_features.fit_transform(x_t)
-poly_model = LinearRegression()
-poly_model.fit(x_poly, F_Q/F_S)
-y_poly_pred = poly_model.predict(x_poly)
-print('Poly model R^2={}'.format(poly_model.score(x_poly, F_Q/F_S)))
-
-print('fit last={}'.format(y_poly_pred[-1]))
-
 # combined / Fs
 fig9, ax9 = plt.subplots()
 ax9.plot(tf, F_Q/F_S, label='F_Q')
-
-# sort the values of x before line plot
-sort_axis = operator.itemgetter(0)
-sorted_zip = sorted(zip(x_t, y_poly_pred), key=sort_axis)
-x_t, y_poly_pred = zip(*sorted_zip)
-ax9.plot(x_t, y_poly_pred, label='fit')
-
 ax9.plot(tf, F_C/F_S, label='F_C')
 ax9.set_xlabel('t')
 ax9.set_ylabel('F/F_S')

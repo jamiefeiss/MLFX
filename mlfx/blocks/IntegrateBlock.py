@@ -37,15 +37,15 @@ class IntegrateBlock(Block):
         self.tolerance = tolerance
         self.samples = samples
 
-        # self.filters = [] # list of blocks
+        self.filters = [] # list of blocks
         self.operators = []
         self.int_vecs = []
 
         self._head = IntegrateNode(self._parent, self.algorithm, self.interval)
         self._parent.add_child(self._head)
     
-    # def add_filter(self, filter):
-    #     self.filters.append(filter)
+    def add_filter(self, filter):
+        self.filters.append(filter)
 
     def add_operator(self, operator):
         """
@@ -63,7 +63,8 @@ class IntegrateBlock(Block):
         Args:
             int_vec (str): The integration vector string
         """
-        self.int_vecs.append(int_vec)
+        if int_vec not in self.int_vecs:
+            self.int_vecs.append(int_vec)
     
     def int_vecs_str(self) -> str:
         """
@@ -121,13 +122,14 @@ class IntegrateBlock(Block):
             sam = SamplesNode(self._head, self.samples)
             self._head.add_child(sam)
         
-        # # filters
-        # if self.filters:
-        #     fils = FiltersNode(self._head)
-        #     self._head.add_child(fils)
-        #     for filter in self.filters:
-        #         print('filter')
-        #         # filter.generate()
+        # filters
+        if self.filters:
+            fils = FiltersNode(self._head)
+            fils.add_attribute('where', 'step end')
+            self._head.add_child(fils)
+            for filter in self.filters:
+                filter.set_filters_parent(fils)
+                filter.generate()
 
         # operators
         ops = OperatorsNode(self._head)

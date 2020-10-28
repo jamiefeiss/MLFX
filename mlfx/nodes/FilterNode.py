@@ -1,8 +1,8 @@
 from .Node import Node
 
 class FilterNode(Node) :
-    def __init__(self, parent) :
-        super().__init__('filter', parent)
+    def __init__(self, parent, is_cdata = True) :
+        super().__init__('filter', parent, is_cdata=is_cdata)
     
     def validate(self) :
         # if self._attributes :

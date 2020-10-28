@@ -84,7 +84,7 @@ class Block(ABC):
         Returns:
             List[str]: The list of term strings
         """
-        term_list = list(filter(None, re.split('[.,;\+\-\/\*()\[\]]', eq)))
+        term_list = list(filter(None, re.split('[.,;=\+\-\/\*()\[\]]', eq)))
         return [term.strip() for term in term_list]
     
     def components_str(self) -> str:
@@ -131,7 +131,8 @@ class Block(ABC):
         Args:
             dependency (str): The dependency string
         """
-        self.dependencies.append(dependency)
+        if dependency not in self.dependencies and not dependency == self.name:
+            self.dependencies.append(dependency)
     
     def dependencies_str(self) -> str:
         """
