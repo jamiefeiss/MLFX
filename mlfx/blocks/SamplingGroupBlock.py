@@ -28,7 +28,13 @@ class SamplingGroupBlock(Block):
         self._head = SamplingGroupNode(self._parent)
         self._parent.add_child(self._head)
     
-    def add_comp_vec(self, comp_vec):
+    def add_comp_vec(self, comp_vec: Type[ComputedVectorBlock]):
+        """
+        Adds a ComputedVectorBlock
+        
+        Args:
+            comp_vec (ComputedVectorBlock): The ComputedVectorBlock to be added
+        """
         self.comp_vecs.append(comp_vec)
     
     def generate(self):

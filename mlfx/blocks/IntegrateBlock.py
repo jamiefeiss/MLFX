@@ -44,7 +44,13 @@ class IntegrateBlock(Block):
         self._head = IntegrateNode(self._parent, self.algorithm, self.interval)
         self._parent.add_child(self._head)
     
-    def add_filter(self, filter):
+    def add_filter(self, filter: Type[FilterBlock]):
+        """
+        Adds a FilterBlock
+        
+        Args:
+            filter (FilterBlock): The FilterBlock to be added
+        """
         self.filters.append(filter)
 
     def add_operator(self, operator):

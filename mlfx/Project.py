@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List, Optional, Union, Type
+from typing import Dict, Tuple, List, Optional, Union, Type, Callable
 import time
 
 from lxml import etree
@@ -234,7 +234,7 @@ class Project(object):
 		chain = xmds2[filename + '.xmds']
 		chain()
 
-	def run(self, param_vals: List[Tuple] = None):
+	def run(self, param_vals: Optional[List[Tuple]] = None):
 		"""
 		Runs the XMDS2 file with parameter values
 		
@@ -251,27 +251,25 @@ class Project(object):
 				arg_list.append(arg_str)
 		chain(*arg_list)
 	
-	def cost_fn(self, cost_fn):
-		# sets user-defined post-processing cost function
+	def cost_fn(self, cost_fn: Callable[[Type[h5py.File]], Union[int, float]]):
+		"""
+		Sets a user-defined post-processing cost function
+		
+		Args:
+			cost_fn (function(h5py.File): int, float): The callable function that returns a number
+		"""
 		self.cost_fn = cost_fn
-	
-	# def _objective_function(self, x):
-	# 	# run sim
-	# 	param_vals = []
-	# 	for i in range(len(x)):
-	# 		param = [param for param in self._parameters if param.index == i][0]
-	# 		param_vals.append((param.name, x[i]))
-	# 	self.run(param_vals)
 
-	# 	# open h5 file
-	# 	f = h5py.File(self.sim_name + '.h5', 'r')
-	# 	dataset = f['1']
-	# 	output = dataset[self.cost_name][...]
-	# 	f.close()
-	# 	return self.cost_fn(output)
+	def _objective_function(self, x: Type[numpy.ndarray]):
+		"""
+		Runs the simulation with one set of input values
+		
+		Args:
+			x (numpy.ndarray): The input parameter set to run
 
-	def _objective_function(self, x):
-		# run sim
+		Returns:
+			function(h5py.File): int, float
+		"""
 		param_vals = []
 		for i in range(len(x)):
 			param = [param for param in self._parameters if param.index == i][0]
@@ -285,155 +283,156 @@ class Project(object):
 	
 	@timer
 	def optimise(self):
+		"""Runs optimisation over the simulation's parameter range"""
 		self.compile(self.filename)
 		self.network.generate_training_output(self._objective_function)
 		self.network.train()
 		self.network.plot_history()
 		self.network.find_optimal_params(self._objective_function)
 
-	def optimise2(self, filename: str, sim_name: str, fig_name: str):
-		"""
-		Optimises over parameter set
+	# def optimise2(self, filename: str, sim_name: str, fig_name: str):
+	# 	"""
+	# 	Optimises over parameter set
 		
-		Args:
-			filename (str): The file name
-			sim_name (str): The name of the executable
-			fig_name (str): The name the main output figure to be plotted
-		"""
-		self.compile(filename)
+	# 	Args:
+	# 		filename (str): The file name
+	# 		sim_name (str): The name of the executable
+	# 		fig_name (str): The name the main output figure to be plotted
+	# 	"""
+	# 	self.compile(filename)
 
-		# k_min = 1.0
-		# k_max = 2.0
-		k_min = self._parameters[0].min
-		k_max = self._parameters[0].max
-		no_steps = 50
-		step_size = (k_max - k_min) / no_steps
-		o_max = 0
-		k = k_min
-		k_opt = k
+	# 	# k_min = 1.0
+	# 	# k_max = 2.0
+	# 	k_min = self._parameters[0].min
+	# 	k_max = self._parameters[0].max
+	# 	no_steps = 50
+	# 	step_size = (k_max - k_min) / no_steps
+	# 	o_max = 0
+	# 	k = k_min
+	# 	k_opt = k
 
-		# loop
-		while k <= k_max:
-			self.run(sim_name, [(self._parameters[0].name, k)])
-			# chain2 = local['./' + sim_name]
-			# chain2('--k=' + str(k))
+	# 	# loop
+	# 	while k <= k_max:
+	# 		self.run(sim_name, [(self._parameters[0].name, k)])
+	# 		# chain2 = local['./' + sim_name]
+	# 		# chain2('--k=' + str(k))
 
-			f = h5py.File(sim_name + '.h5', 'r')
-			dset3 = f['5']
-			overlap = float(dset3['overlap1'][...])
-			f.close()
+	# 		f = h5py.File(sim_name + '.h5', 'r')
+	# 		dset3 = f['5']
+	# 		overlap = float(dset3['overlap1'][...])
+	# 		f.close()
 
-			if overlap > o_max:
-				o_max = overlap
-				k_opt = k
-			k += step_size
+	# 		if overlap > o_max:
+	# 			o_max = overlap
+	# 			k_opt = k
+	# 		k += step_size
 		
-		self._parameters[0].set_optimal(k_opt)
+	# 	self._parameters[0].set_optimal(k_opt)
 		
-		# optimal k
-		print('k_opt=' + str(round(self._parameters[0].optimal, 4)))
+	# 	# optimal k
+	# 	print('k_opt=' + str(round(self._parameters[0].optimal, 4)))
 
-		self.run(sim_name, [(self._parameters[0].name, self._parameters[0].optimal)])
-		# chain2 = local['./' + sim_name]
-		# chain2('--k=' + str(k_opt))
+	# 	self.run(sim_name, [(self._parameters[0].name, self._parameters[0].optimal)])
+	# 	# chain2 = local['./' + sim_name]
+	# 	# chain2('--k=' + str(k_opt))
 
-		self.plot(sim_name, fig_name)
+	# 	self.plot(sim_name, fig_name)
 
-	def plot(self, sim_name: str, fig_name: str):
-		"""
-		Creates plots
+	# def plot(self, sim_name: str, fig_name: str):
+	# 	"""
+	# 	Creates plots
 		
-		Args:
-			sim_name (str): The name of the executable
-			fig_name (str): The name the main output figure to be plotted
-		"""
-		f = h5py.File(sim_name + '.h5', 'r')
+	# 	Args:
+	# 		sim_name (str): The name of the executable
+	# 		fig_name (str): The name the main output figure to be plotted
+	# 	"""
+	# 	f = h5py.File(sim_name + '.h5', 'r')
 
-		dset1 = f['1'] # psi
-		dset2 = f['2'] # V
-		dset3 = f['3'] # lambda
-		dset4 = f['4'] # psi2
-		dset5 = f['5'] # overlap
+	# 	dset1 = f['1'] # psi
+	# 	dset2 = f['2'] # V
+	# 	dset3 = f['3'] # lambda
+	# 	dset4 = f['4'] # psi2
+	# 	dset5 = f['5'] # overlap
 
-		d1 = dset1['density']
-		x1 = dset1['x']
+	# 	d1 = dset1['density']
+	# 	x1 = dset1['x']
 
-		p2 = dset2['p'] # V[t, x]
-		x2 = dset2['x']
+	# 	p2 = dset2['p'] # V[t, x]
+	# 	x2 = dset2['x']
 
-		l3 = dset3['l']
-		t3 = dset3['t']
+	# 	l3 = dset3['l']
+	# 	t3 = dset3['t']
 
-		d4 = dset4['density2']
-		x4 = dset4['x']
+	# 	d4 = dset4['density2']
+	# 	x4 = dset4['x']
 
-		overlap = float(dset5['overlap1'][...])
-		print('overlap=' + str(round(overlap, 4)))
+	# 	overlap = float(dset5['overlap1'][...])
+	# 	print('overlap=' + str(round(overlap, 4)))
 
-		# final state density plot
-		fig, ax = plt.subplots()  # Create a figure containing a single axes.
-		ax.plot(x1[...], d1[...], label='final state')  # Plot some data on the axes.
-		ax.plot(x4[...], d4[...], label='desired state')  # Plot some data on the axes.
-		ax.set_xlabel('x')
-		ax.set_ylabel('Density')
-		ax.set_title('Final state density, ' + self._parameters[0].name + ' = ' + str(round(self._parameters[0].optimal, 4)) + ', overlap = ' + str(round(overlap, 4)))
-		ax.legend()
-		fig.savefig(fig_name + '.png')
+	# 	# final state density plot
+	# 	fig, ax = plt.subplots()  # Create a figure containing a single axes.
+	# 	ax.plot(x1[...], d1[...], label='final state')  # Plot some data on the axes.
+	# 	ax.plot(x4[...], d4[...], label='desired state')  # Plot some data on the axes.
+	# 	ax.set_xlabel('x')
+	# 	ax.set_ylabel('Density')
+	# 	ax.set_title('Final state density, ' + self._parameters[0].name + ' = ' + str(round(self._parameters[0].optimal, 4)) + ', overlap = ' + str(round(overlap, 4)))
+	# 	ax.legend()
+	# 	fig.savefig(fig_name + '.png')
 
-		# timing function plot
-		fig2, ax2 = plt.subplots()  # Create a figure containing a single axes.
-		ax2.plot(t3[...], l3[...])  # Plot some data on the axes.
-		ax2.set_xlabel('t')
-		ax2.set_ylabel('lambda')
-		ax2.set_title('Timing function, ' + self._parameters[0].name + ' = ' + str(round(self._parameters[0].optimal, 4)))
-		fig2.savefig('lambda.png')
+	# 	# timing function plot
+	# 	fig2, ax2 = plt.subplots()  # Create a figure containing a single axes.
+	# 	ax2.plot(t3[...], l3[...])  # Plot some data on the axes.
+	# 	ax2.set_xlabel('t')
+	# 	ax2.set_ylabel('lambda')
+	# 	ax2.set_title('Timing function, ' + self._parameters[0].name + ' = ' + str(round(self._parameters[0].optimal, 4)))
+	# 	fig2.savefig('lambda.png')
 
-		# timing function plot
-		fig3, ax3 = plt.subplots()  # Create a figure containing a single axes.
-		ax3.plot(x2[...], p2[-1, ...])  # Plot some data on the axes.
-		ax3.set_xlabel('x')
-		ax3.set_ylabel('V')
-		ax3.set_title('Potential, t=T')
-		fig3.savefig('potential.png')
+	# 	# timing function plot
+	# 	fig3, ax3 = plt.subplots()  # Create a figure containing a single axes.
+	# 	ax3.plot(x2[...], p2[-1, ...])  # Plot some data on the axes.
+	# 	ax3.set_xlabel('x')
+	# 	ax3.set_ylabel('V')
+	# 	ax3.set_title('Potential, t=T')
+	# 	fig3.savefig('potential.png')
 		
-		f.close()
+	# 	f.close()
 	
-	def plot2(self, sim_name):
-		# plots for shockwave density & fourier transform
-		f = h5py.File(sim_name + '.h5', 'r')
+	# def plot2(self, sim_name):
+	# 	# plots for shockwave density & fourier transform
+	# 	f = h5py.File(sim_name + '.h5', 'r')
 
-		dset1 = f['1'] # x
-		dset2 = f['2'] # k
+	# 	dset1 = f['1'] # x
+	# 	dset2 = f['2'] # k
 
-		d1 = dset1['density']
-		x1 = dset1['x']
+	# 	d1 = dset1['density']
+	# 	x1 = dset1['x']
 
-		d2 = dset2['k_density']
-		x2 = dset2['kx']
+	# 	d2 = dset2['k_density']
+	# 	x2 = dset2['kx']
 
-		# density plot
-		fig1, ax1 = plt.subplots()
-		ax1.plot(x1[...], d1[...])
-		ax1.set_xlabel('x')
-		ax1.set_ylabel('Density')
-		ax1.set_title('State density')
-		ax1.legend()
-		fig1.savefig('density.png')
+	# 	# density plot
+	# 	fig1, ax1 = plt.subplots()
+	# 	ax1.plot(x1[...], d1[...])
+	# 	ax1.set_xlabel('x')
+	# 	ax1.set_ylabel('Density')
+	# 	ax1.set_title('State density')
+	# 	ax1.legend()
+	# 	fig1.savefig('density.png')
 
-		# fourier density plot
-		fig2, ax2 = plt.subplots()
-		ax2.plot(x2[...], d2[...])
-		ax2.set_xlabel('kx')
-		ax2.set_ylabel('Density')
-		ax2.set_title('Fourier transform of density')
-		ax2.legend()
-		fig2.savefig('k_density.png')
+	# 	# fourier density plot
+	# 	fig2, ax2 = plt.subplots()
+	# 	ax2.plot(x2[...], d2[...])
+	# 	ax2.set_xlabel('kx')
+	# 	ax2.set_ylabel('Density')
+	# 	ax2.set_title('Fourier transform of density')
+	# 	ax2.legend()
+	# 	fig2.savefig('k_density.png')
 
 	### nodes
 
 	def new_name(self, text: str):
 		"""
-		Adds a name
+		Adds the name Node for the simulation
 		
 		Args:
 			text (str): The name of the simulation
@@ -443,7 +442,7 @@ class Project(object):
 
 	def new_author(self, text: str):
 		"""
-		Adds an author
+		Adds the author Node for the simulation
 		
 		Args:
 			text (str): The author's name
@@ -453,7 +452,7 @@ class Project(object):
 	
 	def new_description(self, text: str):
 		"""
-		Adds a description
+		Adds the description Node for the simulation
 		
 		Args:
 			text (str): The description of the simulation
@@ -494,7 +493,6 @@ class Project(object):
 		"""
 		# only consider type & dimensions, no dependencies
 		comp_vector = ComputedVectorNode(self._node, name, type, dimensions)
-		# vector.comment = 'comment'
 		self._node.add_child(comp_vector)
 		comp = ComponentsNode(comp_vector, component)
 		comp_vector.add_child(comp)
@@ -504,14 +502,24 @@ class Project(object):
 	### blocks
 	
 	def sequence(self) -> SequenceNode:
-		"""Adds the main sequence node"""
+		"""
+		Adds the main sequence node
+		
+		Returns:
+			SequenceNode: The SequenceNode of the simulation
+		"""
 		# ignore nested sequences for now
 		self._sequence = SequenceNode(self._node)
 		self._node.add_child(self._sequence)
 		return self._sequence
 	
 	def output(self) -> OutputNode:
-		"""Adds the output node"""
+		"""
+		Adds the main output node
+
+		Returns:
+			OutputNode: The OutputNode of the simulation
+		"""
 		self._output = OutputNode(self._node)
 		self._node.add_child(self._output)
 		return self._output
@@ -526,6 +534,9 @@ class Project(object):
 			steps (str): The number of steps in the integration
 			tolerance (str): The integration tolerance for adaptive algorithms
 			samples (str): The number of samples for each sampling group
+		
+		Returns:
+			IntegrateBlock: The IntegrateBlock
 		"""
 		i = IntegrateBlock(self._sequence, algorithm, interval, steps, tolerance, samples)
 		self._add_block(i)
@@ -539,6 +550,9 @@ class Project(object):
 			type (str): The vector type
 			dimensions (str): The vector dimensions
 			initial_basis (str): The initial basis
+		
+		Returns:
+			VectorBlock: The VectorBlock
 		"""
 		v = VectorBlock(self._node, type, dimensions, initial_basis)
 		self._add_block(v)
@@ -552,6 +566,9 @@ class Project(object):
 			type (str): The vector type
 			dimensions (str): The vector dimensions
 			initial_basis (str): The initial basis
+		
+		Returns:
+			ComputedVectorBlock: The ComputedVectorBlock
 		"""
 		if parent is None:
 			parent = self._node
@@ -562,6 +579,14 @@ class Project(object):
 	def filter(self, parent = None, name: Optional[str] = None, in_integrate = False) -> FilterBlock:
 		"""
 		Adds a filter block
+
+		Args:
+			parent (Node): The parent node
+			name (str): The filter name
+			in_integrate (bool): True if filter is in an integrate block
+		
+		Returns:
+			FilterBlock: The FilterBlock
 		"""
 		if parent is None:
 			parent = self._node
@@ -578,6 +603,9 @@ class Project(object):
 			kind (str): The operator kind [ip/ex]
 			type (str): The operator type
 			constant (str): Whether the operator is constant [yes/no]
+		
+		Returns:
+			OperatorBlock: The OperatorBlock
 		"""
 		o = OperatorBlock(parent, kind, type, constant)
 		return o
@@ -589,6 +617,9 @@ class Project(object):
 		Args:
 			basis (str): The dimension basis of the sampling group
 			initial_sample (str): Whether the output is sampled before integration [yes/no]
+		
+		Returns:
+			SamplingGroupBlock: The SamplingGroupBlock
 		"""
 		sg = SamplingGroupBlock(self._output, basis, initial_sample)
 		self._add_block(sg)
@@ -602,9 +633,6 @@ class Project(object):
 			block (Block): The block to be added
 		"""
 		self._blocks.append(block)
-	
-	# def add_global(self, glob):
-	# 	self._globals.append(glob)
 
 	def add_global(self, type: str, name: str, value: Union[int, float]):
 		"""
@@ -617,10 +645,6 @@ class Project(object):
 		"""
 		glob = Global(type, name, value)
 		self._globals.append(glob)
-	
-	# def add_argument(self, name, type, default_value):
-	# 	arg_tup = (name, type, default_value)
-	# 	self._parameters.append(arg_tup)
 
 	def parameter(self, type: str, name: str, default_value: Union[int, float], min: Union[int, float], max: Union[int, float]):
 		"""
@@ -637,5 +661,5 @@ class Project(object):
 		self._parameters.append(param)
 		self._no_params += 1
 	
-	def cost_variable(self, cost_variable: str):
-		self.cost_name = cost_variable
+	# def cost_variable(self, cost_variable: str):
+	# 	self.cost_name = cost_variable

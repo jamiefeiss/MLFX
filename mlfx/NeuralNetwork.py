@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # mute warnings, etc.
 import time
+from typing import Dict, List, Optional, Union, Type, Callable
 
 import tensorflow as tf
 import numpy as np
@@ -26,23 +27,23 @@ class NeuralNetwork(object):
     Class for the neural network
 
     Args:
-        parameters
-        settings
+        parameters (List[Parameter]): The list of input parameters to be trained
+        settings (Dict): The ML settings
 
     Attributes:
-        parameters
-        settings
-        model
-        train_optimiser
-        opt_optimiser
-        training_input
-        training_input_norm
-        training_output
-        training_output_norm
-        history
+        parameters (List[Parameter]): The list of input parameters to be trained
+        settings (Dict): A dict of the machine learning-specific settings
+        model (tf.keras.Sequential): The neural network model
+        train_optimiser (tf.keras.optimizers.Adam): The optimiser for training the model
+        opt_optimiser (tf.keras.optimizers.Adam): The optimiser for optimising the model
+        training_input (numpy.ndarray): An array of the training data input values
+        training_input_norm (numpy.ndarray): An array of the nromalised training data input values
+        training_output (numpy.ndarray): An array of the training data output values
+        training_output_norm (numpy.ndarray): An array of the normalised training data output values
+        history (tf.keras.callbacks.History): A history object that records training error over time
     """
 
-    def __init__(self, parameters, settings):
+    def __init__(self, parameters: List[Type[Parameter]], settings: Dict):
         self.parameters = parameters
         self.settings = settings
         self.model = tf.keras.Sequential()
@@ -57,16 +58,33 @@ class NeuralNetwork(object):
         else:
             self.opt_optimiser = tf.keras.optimizers.Adam(learning_rate=settings['opt_learning_rate'])
 
-    def _input_data_row_string(self, row):
+    def _input_data_row_string(self, row: Union[List, Type[numpy.ndarray]]):
+        """
+        Formats input data to be written to file
+
+        Args:
+            row (List[int, float], numpy.ndarray):
+
+        Returns:
+            str: The formatted string to be written to file
+        """
         string = ''
         for i, element in enumerate(row):
             if i == len(row) - 1: # end of row
-                string += str(row[i][0]) + '\n'
+                string += str(row[i]) + '\n'
             else:
-                string += str(row[i][0]) + ' '
+                string += str(row[i]) + ' '
         return string
 
     def generate_training_input(self):
+        """
+        Generates a training set for the input data
+        
+        A training set of the specified size is generated from either: linearly spaced, uniform random or normal random
+        distributed within the ranges of each parameter. This function also generated a histogram for each parameter, showing
+        the values chosen. A normalised set of training is also made in this function. After the training set has been generated,
+        the input values are written to file.
+        """
         inputs = []
         inputs_normalised = []
         for i in range(len(self.parameters)):
@@ -82,23 +100,43 @@ class NeuralNetwork(object):
         self.training_input = np.column_stack(tuple([input for input in inputs]))
         self.training_input_norm = np.column_stack(tuple([input for input in inputs_normalised]))
 
+        # clear file
+        file = open("input.txt","w")
+        file.close()
+
         # write training input data to file
-        # with open('input.txt', 'w') as f:
-        #     for row in self.training_input:
-        #         f.write(self._input_data_row_string(row))
+        with open('input.txt', 'w') as f:
+            for row in self.training_input:
+                f.write(self._input_data_row_string(row))
 
     @timer
-    def generate_training_output(self, objective_fn):
+    def generate_training_output(self, objective_fn: Callable):
+        """
+        Generates the output training data from the input parameter values.
+
+        Args:
+            objective_fn (function): The objective function that runs XMDS2, returning a cost value
+        """
         print('Generating training data...')
-        # self.objective_fn = objective_fn
+
+        # clear file
+        file = open("output.txt","w")
+        file.close()
+
         y_list = []
+        counter = 0
+        print('...{}/{} training points completed...'.format(counter, self.settings['training_size']), end="\r", flush=True)
         for x in self.training_input:
-            print(x)
             y = objective_fn(x) # run xmds
+            counter += 1
+            if counter == self.settings['training_size']:
+                print('{}/{} training points completed.      '.format(counter, self.settings['training_size']))
+            else:
+                print('...{}/{} training points completed...'.format(counter, self.settings['training_size']), end="\r", flush=True)
 
             # append to output file
-            # with open('output.txt', 'a') as f:
-            #     f.write(str(y) + '\n')
+            with open('output.txt', 'a') as f:
+                f.write(str(y) + '\n')
             y_list.append(y)
         
         self.training_output = np.asarray(y_list, dtype = np.float64).reshape(self.settings['training_size'], 1)
@@ -107,6 +145,7 @@ class NeuralNetwork(object):
         # self.plot_param_scatter(self.training_input, self.training_output)
 
     def construct_network(self):
+        """Initialises the neural network"""
         # add neuron layers
         for i, layer_count in enumerate(self.settings['neurons']):
             if i == 0:
@@ -114,11 +153,12 @@ class NeuralNetwork(object):
             else:
                 self.model.add(tf.keras.layers.Dense(layer_count, activation='sigmoid'))
         self.model.add(tf.keras.layers.Dense(1)) # output layer
-        
         self.model.compile(optimizer=self.train_optimiser, loss='mse')
+        self.model.summary()
 
     @timer
     def train(self):
+        """Trains the neural network on the training set"""
         print('Training network...')
         if self.settings['early_stop']:
             early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.settings['early_stop_patience'], min_delta=self.settings['early_stop_delta'])
@@ -134,16 +174,25 @@ class NeuralNetwork(object):
         # save model
         # self.model.save('saved_model')
 
-    def _write_optimal_to_file(self, optimal):
-        # optimal_list = []
-        # for i, input in enumerate(optimal):
-        #     optimal_list.append(self._inverse_normalise(input, self.parameters[i].min, self.parameters[i].max))
+    def _write_optimal_to_file(self, optimal: Type[numpy.ndarray]):
+        """
+        Writes the optimal parameter attempts to file
+        
+        Args:
+            optimal (numpy.ndarray): the current optimal set attempt
+        """
         optimal_list = self._inverse_normalise_parameter_row(optimal)
-
+        optimal_list_formatted = [param[0] for param in optimal_list]
         with open('optimal.txt', 'a') as f:
-            f.write(self._input_data_row_string(optimal_list))
+            f.write(self._input_data_row_string(optimal_list_formatted))
     
-    def _write_cost_to_file(self, cost):
+    def _write_cost_to_file(self, cost: Union[int, float]):
+        """
+        Writes the cost value of the current attempt to file
+        
+        Args:
+            cost (int, float): the current cost value
+        """
         cost_string = str(cost) + '\n'
         with open('cost.txt', 'a') as f:
             f.write(cost_string)
@@ -272,9 +321,20 @@ class NeuralNetwork(object):
     #     y_output = np.asarray(y_norm, dtype = np.float32).reshape(1, 1)
 
     @timer
-    def find_optimal_params(self, objective_fn):
-        """Does a single optimisation run over the parameter surface"""
+    def find_optimal_params(self, objective_fn: Callable):
+        """
+        Does a single optimisation run over the parameter surface
+        
+        Args:
+            objective_fn (function): The objective function that runs XMDS2, returning a cost value
+        """
         print('Optimising...')
+
+        # clear file
+        file = open("optimal.txt","w")
+        file.close()
+        file = open("cost.txt","w")
+        file.close()
 
         default_param_values_norm = [] # normalised default parameters
         for param in self.parameters:
@@ -282,7 +342,6 @@ class NeuralNetwork(object):
         inputs_default = tf.constant(default_param_values_norm)
         inputs_opt = tf.Variable([inputs_default], trainable=True, dtype = tf.float32)
 
-        # opt_optimiser = tf.keras.optimizers.Adam(learning_rate=self.settings['opt_learning_rate'])
         opt_optimiser = self.opt_optimiser
 
         # save to file
@@ -309,26 +368,80 @@ class NeuralNetwork(object):
         print('y={}'.format(y_unnorm))
         y_norm = self._normalise(y_unnorm, self.training_output.min(), self.training_output.max())
         y_output = np.asarray(y_norm, dtype = np.float32).reshape(1, 1)
+
+    def _normalise(self, x: Union[int, float], min: Union[int, float], max: Union[int, float]) -> Union[int, float]:
+        """
+        Normalises a number using min-max normalisation
+        
+        Args:
+            x (int, float): The number to be normalised
+            min (int, float): The minimum value
+            max (int, float): The maximum value
+        
+        Returns:
+            int, float: The normalised value
+        """
+        return (x - min) / (max - min)
     
-    def _inverse_normalise_parameter_row(self, x_norm):
+    def _normalise_array(self, x_list: Union[List[Union[int, float]], Type[numpy.ndarray]], min: Union[int, float], max: Union[int, float]) -> List[Union[int, float]]:
+        """
+        Normalises an array of numbers using min-max normalisation
+        
+        Args:
+            x_list (List[int, float], numpy.ndarray): The array to be normalised
+            min (int, float): The minimum value
+            max (int, float): The maximum value
+        
+        Returns:
+            List[int, float]: The normalised array
+        """
+        return [self._normalise(x, min, max) for x in x_list]
+    
+    def _inverse_normalise(self, x_norm: Union[int, float], min: Union[int, float], max: Union[int, float]) -> Union[int, float]:
+        """
+        Inverse-normalises a number using min-max normalisation
+        
+        Args:
+            x_norm (int, float): The normalised number
+            min (int, float): The minimum value
+            max (int, float): The maximum value
+        
+        Returns:
+            int, float: The inverse-normalised value
+        """
+        return x_norm * (max - min) + min
+    
+    def _inverse_normalise_array(self, x_norm_list: Union[List[Union[int, float]], Type[numpy.ndarray]], min: Union[int, float], max: Union[int, float]) -> List[Union[int, float]]:
+        """
+        Inverse-normalises an array of numbers using min-max normalisation
+        
+        Args:
+            x_norm_list (List[int, float], numpy.ndarray): The normalised array
+            min (int, float): The minimum value
+            max (int, float): The maximum value
+        
+        Returns:
+            List[int, float]: The inverse-normalised array
+        """
+        return [self._inverse_normalise(x_norm, min, max) for x_norm in x_norm_list]
+    
+    def _inverse_normalise_parameter_row(self, x_norm: Type[numpy.ndarray]) -> Type[numpy.ndarray]:
+        """
+        Inverse-normalises a row of parameter values using min-max normalisation
+        
+        Args:
+            x_norm (numpy.ndarray): The row of normalised parameter values
+        
+        Returns:
+            numpy.ndarray: The row of inverse-normalised parameter values
+        """
         x_list = []
         for i, param in enumerate(x_norm[0]):
             x_list.append(self._inverse_normalise(param, self.parameters[i].min, self.parameters[i].max))
         return np.asarray(x_list, dtype = np.float64).reshape(len(self.parameters), 1)
-
-    def _normalise(self, x, min, max):
-        return (x - min) / (max - min)
-    
-    def _normalise_array(self, x_list, min, max):
-        return [self._normalise(x, min, max) for x in x_list]
-    
-    def _inverse_normalise(self, x_norm, min, max):
-        return x_norm * (max - min) + min
-    
-    def _inverse_normalise_array(self, x_norm_list, min, max):
-        return [self._inverse_normalise(x_norm, min, max) for x_norm in x_norm_list]
     
     def plot_history(self):
+        """Plots the training history"""
         loss = self.history.history['loss']
         val_loss = self.history.history['val_loss']
         epochs = np.arange(1, len(loss) + 1)
@@ -340,15 +453,33 @@ class NeuralNetwork(object):
         ax.set_xlabel('Epochs')
         ax.set_ylabel('Loss (MSE)')
         ax.set_ylim([0, None])
+        ax.set_title('Model Loss')
         ax.legend()
         fig.savefig('history.png')
     
-    def plot_param_hist(self, param, param_list):
+    def plot_param_hist(self, param: Type[Parameter], param_list: Type[numpy.ndarray]):
+        """
+        Plots a histogram of the samples values for a parameter
+        
+        Args:
+            param (Parameter): The parameter to be plotted
+            param_list (List[int, float]): The array of parameter values
+        """
         fig, ax = plt.subplots()
-        ax.hist(param_list, 10)
+        ax.hist(param_list, bins=10, edgecolor='black')
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Frequency')
+        ax.set_title('Random sample of {}'.format(param.name))
         fig.savefig(param.name + '_input.png')
     
     def plot_param_scatter(self, param_list, output_list):
+        """
+        Generates a scatter plot for the parameter values and corresponding cost values
+        
+        Args:
+            arg1 (type): desc
+            arg1 (type): desc
+        """
         fig, ax = plt.subplots()
         ax.scatter(param_list, output_list)
         fig.savefig('training.png')
@@ -356,8 +487,18 @@ class NeuralNetwork(object):
     def plot_network(self):
         pass
     
-    def predict(self, x):
-        # print('x: {}'.format(x.numpy()))
+    def predict(self, x: Type[tf.Variable]) -> Union[int, float]:
+        """
+        Predicts the cost value for a set of input values
+
+        This function also writes the predicted cost to file.
+        
+        Args:
+            x (tf.Variable): The input values
+        
+        Returns:
+            int, float: The predicted cost value
+        """
         y = self.model(x)[0]
 
         y_unnorm = self._inverse_normalise(y.numpy()[0], self.training_output.min(), self.training_output.max())

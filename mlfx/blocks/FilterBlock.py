@@ -10,6 +10,7 @@ class FilterBlock(Block):
     Args:
         parent: The parent node (Simulation, Sequence or Filters)
         filter_name (str): The name of the filter
+        in_integrate (bool): True if FilterBlock is in an IntegrateBlock
 
     Attributes:
         filter_name (str): The name of the filter
@@ -18,7 +19,7 @@ class FilterBlock(Block):
         equations (List[str]): The list of equations
         dependencies (List[str])): The list of dependencies
     """
-    def __init__(self, parent, filter_name: Optional[str] = None, in_integrate = False):
+    def __init__(self, parent, filter_name: Optional[str] = None, in_integrate: Optional[bool] = False):
         super().__init__(parent)
         self.filter_name = filter_name
         self.filters_parent = parent
@@ -27,7 +28,13 @@ class FilterBlock(Block):
             self._head = FilterNode(self.filters_parent, is_cdata=True)
             self.filters_parent.add_child(self._head)
     
-    def add_eq(self, eq):
+    def add_eq(self, eq: str):
+        """
+        Adds an equation string to the equation list
+        
+        Args:
+            eq (str): The equation string to be added
+        """
         self.equations.append(eq)
     
     def set_filters_parent(self, parent: FiltersNode):

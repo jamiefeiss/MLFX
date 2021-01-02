@@ -1,5 +1,5 @@
 # MLFX - Machine Learning for XMDS2
-<sup>MLFX is still under initial devlopment</sup>   
+<sup>MLFX is still under development</sup>   
 MLFX is a Python library for machine learning optimisation of XMDS2 simulations.
 
 **Tested on:**
